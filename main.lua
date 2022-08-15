@@ -107,6 +107,7 @@ local DEFAULT_MASTER_VOLUME = .75
 love.audio.setVolume(DEFAULT_MASTER_VOLUME^2)
 
 local function updateActiveEffects()
+	-- Effects.
 	for _, effectInfo in ipairs(EFFECTS) do
 		if gui:find("param_"..effectInfo.type.."_active"):isToggled() then
 			local settings = {}
@@ -151,16 +152,33 @@ local function updateActiveEffects()
 			love.audio.setEffect(effectInfo.type, false)
 		end
 	end
+
+	-- Filter.
+	if gui:find("filterParam_active"):isToggled() then
+		local filterType = gui:find("filterParam_type"):findToggled().data.value
+		source:setFilter{
+			type     = filterType,
+			volume   = gui:find("filterParam_volume"  ):getValue(),
+			highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find("filterParam_highgain"):getValue() or nil,
+			lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find("filterParam_lowgain" ):getValue() or nil,
+		}
+	else
+		source:setFilter()
+	end
 end
 
 local function loadSound(path)
 	local isPlaying = false
+	local vol       = 1
+
 	if source then
 		isPlaying = source:isPlaying()
+		vol       = source:getVolume()
 		source:stop()
 	end
 
 	source = love.audio.newSource(path, "static")
+	source:setVolume(vol)
 	source:setLooping(true)
 
 	if isPlaying then  source:play()  end
@@ -175,7 +193,62 @@ local fontSmall  = love.graphics.newFont(10)
 local fontNormal = love.graphics.newFont(12)
 local fontLarge  = love.graphics.newFont(16)
 
-local SPACING = 8
+local SPACING           = 8
+local LABEL_EXTRA_WIDTH = 5
+
+local function guiAddConstantParam(guiParent, labelWidth, label, v)
+	local guiRow = guiParent:insert{"hbar",
+		{"text", width=labelWidth, align="left", text=label..":"},
+		{"text", align="left", text=tostring(v)},
+	}
+	return guiRow
+end
+local function guiAddToggleParam(guiParent, labelWidth, id, label, toggled, onToggle)
+	local guiRow = guiParent:insert{"hbar",
+		{"button", id=id, canToggle=true, toggled=toggled, text=label, weight=1},
+	}
+	if onToggle then  guiRow:findType"button":on("toggle", onToggle)  end
+	return guiRow
+end
+local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, min,max, v, vFormat, onChange)
+	local guiRow = guiParent:insert{"hbar",
+		{"text", width=labelWidth, align="left", text=label..":"},
+		{"slider", id=id, min=min, max=max, value=v, weight=1},
+		{"text", style="output", width=outputWidth, text=string.format(vFormat, v)},
+	}
+	guiRow:findType"slider":on("valuechange", function(guiSlider)
+		guiRow:find"output":setText(string.format(vFormat, guiSlider:getValue()))
+		if onChange then  onChange(guiSlider)  end
+	end)
+	guiRow:findType"slider":on("mousepressed", function(guiSlider, event, mx,my, mbutton, pressCount)
+		if mbutton ~= 2 then  return  end
+		guiSlider:showMenu({
+			":: "..label.." ::",
+			"Copy ("..guiSlider:getValue()..")",
+			-- "Paste", -- @Incomplete
+			"Reset ("..v..")",
+		}, mx+2,my+2, function(choice)
+			if choice == 2 then
+				love.system.setClipboardText(tostring(guiSlider:getValue()))
+			elseif choice == 3 then
+				guiSlider:setValue(v)
+				guiSlider:trigger("valuechange")
+			end
+		end)
+	end)
+	return guiRow
+end
+local function guiAddRadioParam(guiParent, labelWidth, id, label, values, currentValue, onChange)
+	local guiRow = guiParent:insert{"hbar",
+		{"text", width=labelWidth, align="left", text=label..":"},
+		{"hbar", id=id, weight=1},
+	}
+	for _, v in ipairs(values) do
+		local guiButton = guiRow:findType"hbar":insert{"button", data={value=v}, weight=1, radio=id, canToggle=true, toggled=(v==currentValue), text=tostring(v)}
+		if onChange then  guiButton:on("toggleon", onChange)  end
+	end
+	return guiRow
+end
 
 gui = require"Gui"()
 gui:setFont(fontNormal)
@@ -189,15 +262,12 @@ gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(
 	{"vbar", relativeWidth=1, relativeHeight=1, padding=SPACING, canScrollY=true,
 		{"hbar", spacing=SPACING, background="whatever", padding=SPACING,
 			{"text", text="LÖVE Audio Effects Playground", spacing=2*SPACING, font=fontLarge},
-			{"hbar", id="sounds", spacing=SPACING,
-				{"text", text="Sound:"},
-			},
 			{"vbar", spacing=SPACING,
 				{"button", id="play", text="Play", tooltip="Shortcut: Space", canToggle=true, weight=1},
 				{"canvas", id="position", height=2},
 			},
 			{"hbar", spacing=SPACING,
-				{"text", text="Volume:"},
+				{"text", text="Master:"},
 				{"slider", id="masterVolume", min=0, max=1, value=DEFAULT_MASTER_VOLUME, width=100},
 			},
 			{"hbar", spacing=SPACING,
@@ -215,10 +285,6 @@ gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(
 		},
 	},
 }
-
-gui:find"sounds":insert{"button", radio="sound", canToggle=true, toggled=false, text="Fight" }:on("toggleon", function()  loadSound("sounds/fight.ogg" ) ; updateActiveEffects()  end)
-gui:find"sounds":insert{"button", radio="sound", canToggle=true, toggled=true , text="Guitar"}:on("toggleon", function()  loadSound("sounds/guitar.wav") ; updateActiveEffects()  end)
-gui:find"sounds":insert{"button", radio="sound", canToggle=true, toggled=false, text="Speech"}:on("toggleon", function()  loadSound("sounds/speech.ogg") ; updateActiveEffects()  end)
 
 gui:find"play":on("toggle", function(guiSlider)
 	if source:isPlaying() then
@@ -242,8 +308,61 @@ gui:find"copyToClipboard":on("press", function(guiButton)
 	-- @Incomplete
 end)
 
+-- Source.
+do
+	local labelWidth = math.max(
+		fontNormal:getWidth"sound:",
+		fontNormal:getWidth"volume:",
+		fontNormal:getWidth"f_volume:",
+		fontNormal:getWidth"f_highgain:",
+		fontNormal:getWidth"f_lowgain:"
+	)
+
+	local guiSource = gui:find"column1":insert{"vbar", spacing=SPACING, background="whatever", padding=SPACING}
+
+	-- Header.
+	guiSource:insert{"hbar", spacing=SPACING,
+		{"text", align="left", text="Source", font=fontLarge, weight=1},
+		{"button", id="filterParam_active", canToggle=true, text="Filter"},
+	}
+	guiSource:find("filterParam_active"):on("toggle", function(guiButton)
+		guiSource:find"filterParams":setVisible(guiButton:isToggled())
+		updateActiveEffects()
+	end)
+
+	-- Source parameters.
+	guiAddRadioParam(guiSource, labelWidth, "sourceSound", "sound", {"Fight","Guitar","Speech"}, "Guitar", function(guiButton)
+		if guiButton.data.value == "Fight"  then  loadSound("sounds/fight.ogg" )  end
+		if guiButton.data.value == "Guitar" then  loadSound("sounds/guitar.wav")  end
+		if guiButton.data.value == "Speech" then  loadSound("sounds/speech.ogg")  end
+		updateActiveEffects()
+	end)
+
+	guiAddSliderParam(guiSource, labelWidth, fontSmall:getWidth"1.00", "sourceVolume", "volume", 0,1, 1, "%.2f", function(guiSlider)
+		source:setVolume(guiSlider:getValue()^2)
+	end)
+
+	-- Filter parameters.
+	local guiFilterRows = guiSource:insert{"vbar", id="filterParams", hidden=true}
+
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "f_type", {"lowpass","highpass","bandpass"}, "lowpass", function(guiButton)
+		guiFilterRows:find("filterParam_highgain"):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
+		guiFilterRows:find("filterParam_lowgain" ):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
+		updateActiveEffects()
+	end)
+
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_volume"  , "f_volume"  , 0,1, 1, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_highgain", "f_highgain", 0,1, 1, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_lowgain" , "f_lowgain" , 0,1, 1, "%.2f", updateActiveEffects):findType"slider":setActive(false)
+end
+
+-- Effects.
 for _, effectInfo in ipairs(EFFECTS) do
-	local labelWidth        = math.max(fontNormal:getWidth"f_volume:", fontNormal:getWidth"f_highgain:", fontNormal:getWidth"f_lowgain:")
+	local labelWidth = math.max(
+		fontNormal:getWidth"f_volume:",
+		fontNormal:getWidth"f_highgain:",
+		fontNormal:getWidth"f_lowgain:"
+	)
 	local numberOutputWidth = fontSmall:getWidth"1.00"
 
 	for _, param in ipairs(effectInfo) do
@@ -259,7 +378,7 @@ for _, effectInfo in ipairs(EFFECTS) do
 		end
 	end
 
-	labelWidth        = labelWidth + 10
+	labelWidth        = labelWidth + LABEL_EXTRA_WIDTH
 	numberOutputWidth = numberOutputWidth + 5
 
 	local guiColumn = gui:find("column"..effectInfo.column)
@@ -281,54 +400,10 @@ for _, effectInfo in ipairs(EFFECTS) do
 	for _, param in ipairs(effectInfo) do
 		local paramId = "param_"..effectInfo.type.."_"..param.name
 
-		if param.type == "constant" then
-			guiEffect:insert{"hbar",
-				{"text", width=labelWidth, align="left", text=param.name..":"},
-				{"text", align="left", text=tostring(param.value)},
-			}
-
-		elseif param.type == "boolean" then
-			local guiRow = guiEffect:insert{"hbar",
-				{"button", id=paramId, canToggle=true, toggled=param.default, text=param.name..":", weight=1},
-			}
-			guiRow:findType"button":on("toggle", updateActiveEffects)
-
-		elseif param.type == "number" then
-			local guiRow = guiEffect:insert{"hbar",
-				{"text", width=labelWidth, align="left", text=param.name..":"},
-				{"slider", id=paramId, min=param.min, max=param.max, value=param.default, weight=1},
-				{"text", style="output", width=numberOutputWidth, text=string.format(param.format, param.default)},
-			}
-			guiRow:findType"slider":on("valuechange", function(guiSlider)
-				guiRow:find"output":setText(string.format(param.format, guiSlider:getValue()))
-				updateActiveEffects()
-			end)
-			guiRow:findType"slider":on("mousepressed", function(guiSlider, event, mx,my, mbutton, pressCount)
-				if mbutton ~= 2 then  return  end
-				guiSlider:showMenu({
-					":: "..param.name.." ::",
-					"Copy ("..guiSlider:getValue()..")",
-					"Reset ("..param.default..")",
-				}, mx+2,my+2, function(choice)
-					if choice == 2 then
-						love.system.setClipboardText(tostring(guiSlider:getValue()))
-					elseif choice == 3 then
-						guiSlider:setValue(param.default)
-						guiSlider:trigger("valuechange")
-					end
-				end)
-			end)
-
-		elseif param.type == "enum" then
-			local guiRow = guiEffect:insert{"hbar",
-				{"text", width=labelWidth, align="left", text=param.name..":"},
-				{"hbar", id=paramId, weight=1},
-			}
-			for _, v in ipairs(param.values) do
-				local guiButton = guiRow:findType"hbar":insert{"button", data={value=v}, weight=1, radio=paramId, canToggle=true, toggled=(v==param.default), text=tostring(v)}
-				guiButton:on("toggleon", updateActiveEffects)
-			end
-
+		if     param.type == "constant" then  guiAddConstantParam(guiEffect, labelWidth, param.name, param.value)
+		elseif param.type == "boolean"  then  guiAddToggleParam(guiEffect, labelWidth, paramId, param.name, param.default, updateActiveEffects)
+		elseif param.type == "number"   then  guiAddSliderParam(guiEffect, labelWidth, numberOutputWidth, paramId, param.name, param.min,param.max, param.default, param.format, updateActiveEffects)
+		elseif param.type == "enum"     then  guiAddRadioParam(guiEffect, labelWidth, paramId, param.name, param.values, param.default, updateActiveEffects)
 		else
 			error(param.type)
 		end
@@ -337,51 +412,15 @@ for _, effectInfo in ipairs(EFFECTS) do
 	-- Filter parameters.
 	local guiFilterRows = guiEffect:insert{"vbar", id="filterParams", hidden=true}
 
-	local guiRow = guiFilterRows:insert{"hbar",
-		{"text", width=labelWidth, align="left", text="f_type:"},
-		{"hbar", id="filterParam_"..effectInfo.type.."_type", weight=1,
-			{"button", data={value="lowpass" }, weight=1, radio="filterParam_"..effectInfo.type.."_type", canToggle=true, toggled=true , text="LP", tooltip="Lowpass" },
-			{"button", data={value="highpass"}, weight=1, radio="filterParam_"..effectInfo.type.."_type", canToggle=true, toggled=false, text="HP", tooltip="Highpass"},
-			{"button", data={value="bandpass"}, weight=1, radio="filterParam_"..effectInfo.type.."_type", canToggle=true, toggled=false, text="BP", tooltip="Bandpass"},
-		},
-	}
-	for guiButton in guiRow:traverseType"button" do
-		guiButton:on("toggleon", function(guiButton)
-			guiFilterRows:find("filterParam_"..effectInfo.type.."_highgain"):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
-			guiFilterRows:find("filterParam_"..effectInfo.type.."_lowgain" ):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
-			updateActiveEffects()
-		end)
-	end
-
-	local guiRow = guiFilterRows:insert{"hbar",
-		{"text", width=labelWidth, align="left", text="f_volume:"},
-		{"slider", id="filterParam_"..effectInfo.type.."_volume", min=0, max=1, value=1, weight=1},
-		{"text", style="output", width=numberOutputWidth, text=string.format("%.2f", 1)},
-	}
-	guiRow:findType"slider":on("valuechange", function(guiSlider)
-		guiRow:find"output":setText(string.format("%.2f", guiSlider:getValue()))
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_"..effectInfo.type.."_type", "f_type", {"lowpass","highpass","bandpass"}, "lowpass", function(guiButton)
+		guiFilterRows:find("filterParam_"..effectInfo.type.."_highgain"):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
+		guiFilterRows:find("filterParam_"..effectInfo.type.."_lowgain" ):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
 		updateActiveEffects()
 	end)
 
-	local guiRow = guiFilterRows:insert{"hbar",
-		{"text", width=labelWidth, align="left", text="f_highgain:"},
-		{"slider", id="filterParam_"..effectInfo.type.."_highgain", min=0, max=1, value=1, weight=1},
-		{"text", style="output", width=numberOutputWidth, text=string.format("%.2f", 1)},
-	}
-	guiRow:findType"slider":on("valuechange", function(guiSlider)
-		guiRow:find"output":setText(string.format("%.2f", guiSlider:getValue()))
-		updateActiveEffects()
-	end)
-
-	local guiRow = guiFilterRows:insert{"hbar",
-		{"text", width=labelWidth, align="left", text="f_lowgain:"},
-		{"slider", id="filterParam_"..effectInfo.type.."_lowgain", min=0, max=1, value=1, weight=1, active=false},
-		{"text", style="output", width=numberOutputWidth, text=string.format("%.2f", 1)},
-	}
-	guiRow:findType"slider":on("valuechange", function(guiSlider)
-		guiRow:find"output":setText(string.format("%.2f", guiSlider:getValue()))
-		updateActiveEffects()
-	end)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_volume"  , "f_volume"  , 0,1, 1, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_highgain", "f_highgain", 0,1, 1, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_lowgain" , "f_lowgain" , 0,1, 1, "%.2f", updateActiveEffects):findType"slider":setActive(false)
 end
 
 --
