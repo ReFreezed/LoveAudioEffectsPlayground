@@ -1,0 +1,6 @@
+Sound credits
+LÖVE Audio Effects Playground
+
+fight.ogg by mrrap4food (https://freesound.org/people/mrrap4food/sounds/619057/)
+guitar.wav by Kyster (https://freesound.org/people/Kyster/sounds/75527/)
+speech.ogg by GeoDesign (https://freesound.org/people/GeoDesign/sounds/190503/)
