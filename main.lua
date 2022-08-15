@@ -18,85 +18,85 @@ local gui
 --
 local EFFECTS = {
 	{type="chorus", column=1, title="Chorus",
-		{name="type"            , type="constant",                       value="chorus"},
-		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="waveform"        , type="enum"    ,                       default="triangle", values={{"sine","sine"},{"triangle","triangle"}}},
-		{name="phase"           , type="number"  , min=-180 , max=180  , default=90   , format="%.0fdeg"},
-		{name="rate"            , type="number"  , min=0    , max=10   , default=1.1  , format="%.1fHz"},
-		{name="depth"           , type="number"  , min=0    , max=1    , default=0.1  , format="%.2f"},
-		{name="feedback"        , type="number"  , min=-1   , max=1    , default=0.25 , format="%.2f"},
-		{name="delay"           , type="number"  , min=0    , max=0.016, default=0.016, format="%.3fsec"},
+		{name="type"            , type="constant",                        value="chorus"},
+		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="waveform"        , type="enum"    ,                        default="triangle", values={{"sine","sine"},{"triangle","triangle"}}},
+		{name="phase"           , type="number"  , min=-180  , max=180  , default=90   , exp=1, format="%.0fdeg"},
+		{name="rate"            , type="number"  , min=0     , max=10   , default=1.1  , exp=2, format="%.1fHz"},
+		{name="depth"           , type="number"  , min=0     , max=1    , default=0.1  , exp=2, format="%.2f"},
+		{name="feedback"        , type="number"  , min=-1    , max=1    , default=0.25 , exp=2, format="%.2f"},
+		{name="delay"           , type="number"  , min=0.0005, max=0.016, default=0.016, exp=2, format="%.3fsec"}, -- Min is documented to be 0 but isn't actually.
 	},
 	{type="flanger", column=1, title="Flanger",
-		{name="type"            , type="constant",                       value="flanger"},
-		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="waveform"        , type="enum"    ,                       default="triangle", values={{"sine","sine"},{"triangle","triangle"}}},
-		{name="phase"           , type="number"  , min=-180 , max=180  , default=0    , format="%.0fdeg"},
-		{name="rate"            , type="number"  , min=0    , max=10   , default=0.27 , format="%.2fHz"},
-		{name="depth"           , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="feedback"        , type="number"  , min=-1   , max=1    , default=-.5  , format="%.2f"},
-		{name="delay"           , type="number"  , min=0    , max=0.004, default=0.002, format="%.4fsec"},
+		{name="type"            , type="constant",                        value="flanger"},
+		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="waveform"        , type="enum"    ,                        default="triangle", values={{"sine","sine"},{"triangle","triangle"}}},
+		{name="phase"           , type="number"  , min=-180  , max=180  , default=0    , exp=1, format="%.0fdeg"},
+		{name="rate"            , type="number"  , min=0     , max=10   , default=0.27 , exp=2, format="%.2fHz"},
+		{name="depth"           , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="feedback"        , type="number"  , min=-1    , max=1    , default=-.5  , exp=2, format="%.2f"},
+		{name="delay"           , type="number"  , min=0.0004, max=0.004, default=0.002, exp=2, format="%.4fsec"}, -- Min is documented to be 0 but isn't actually.
 	},
 	{type="equalizer", column=2, title="Equalizer",
-		{name="type"            , type="constant",                       value="equalizer"},
-		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="lowgain"         , type="number"  , min=0.126, max=7.943, default=1    , format="%.3f"},
-		{name="lowcut"          , type="number"  , min=50   , max=800  , default=200  , format="%.0fHz"},
-		{name="lowmidgain"      , type="number"  , min=0.126, max=7.943, default=1    , format="%.3f"},
-		{name="lowmidfrequency" , type="number"  , min=200  , max=3000 , default=500  , format="%.0fHz"},
-		{name="lowmidbandwidth" , type="number"  , min=0.01 , max=1    , default=1    , format="%.2f"},
-		{name="highmidgain"     , type="number"  , min=0.126, max=7.943, default=1    , format="%.3f"},
-		{name="highmidfrequency", type="number"  , min=1000 , max=8000 , default=3000 , format="%.0fHz"},
-		{name="highmidbandwidth", type="number"  , min=0.01 , max=1    , default=1    , format="%.2f"},
-		{name="highgain"        , type="number"  , min=0.126, max=7.943, default=1    , format="%.3f"},
-		{name="highcut"         , type="number"  , min=4000 , max=16000, default=6000 , format="%.0fHz"},
+		{name="type"            , type="constant",                        value="equalizer"},
+		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="lowgain"         , type="number"  , min=0.126 , max=7.943, default=1    , exp=2, format="%.3f"},
+		{name="lowcut"          , type="number"  , min=50    , max=800  , default=200  , exp=2, format="%.0fHz"},
+		{name="lowmidgain"      , type="number"  , min=0.126 , max=7.943, default=1    , exp=2, format="%.3f"},
+		{name="lowmidfrequency" , type="number"  , min=200   , max=3000 , default=500  , exp=2, format="%.0fHz"},
+		{name="lowmidbandwidth" , type="number"  , min=0.01  , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="highmidgain"     , type="number"  , min=0.126 , max=7.943, default=1    , exp=2, format="%.3f"},
+		{name="highmidfrequency", type="number"  , min=1000  , max=8000 , default=3000 , exp=2, format="%.0fHz"},
+		{name="highmidbandwidth", type="number"  , min=0.01  , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="highgain"        , type="number"  , min=0.126 , max=7.943, default=1    , exp=2, format="%.3f"},
+		{name="highcut"         , type="number"  , min=4000  , max=16000, default=6000 , exp=2, format="%.0fHz"},
 	},
 	{type="compressor", column=2, title="Compressor",
-		{name="type"            , type="constant",                       value="compressor"},
-		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="enable"          , type="boolean" ,                       default=true },
+		{name="type"            , type="constant",                        value="compressor"},
+		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="enable"          , type="boolean" ,                        default=true },
 	},
 	{type="reverb", column=3, title="Reverb",
-		{name="type"            , type="constant",                       value="reverb"},
-		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="density"         , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="diffusion"       , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="gain"            , type="number"  , min=0    , max=1    , default=0.32 , format="%.2f"},
-		{name="highgain"        , type="number"  , min=0    , max=1    , default=0.89 , format="%.2f"},
-		{name="decaytime"       , type="number"  , min=0.1  , max=20   , default=1.49 , format="%.1fsec"},
-		{name="decayhighratio"  , type="number"  , min=0.1  , max=2    , default=0.83 , format="%.2f"},
-		{name="earlygain"       , type="number"  , min=0    , max=3.16 , default=0.05 , format="%.2f"},
-		{name="earlydelay"      , type="number"  , min=0    , max=0.3  , default=0.05 , format="%.2fsec"},
-		{name="lategain"        , type="number"  , min=0    , max=10   , default=1.26 , format="%.2f"},
-		{name="latedelay"       , type="number"  , min=0    , max=0.1  , default=0.011, format="%.3fsec"},
-		{name="airabsorption"   , type="number"  , min=0.892, max=1    , default=0.994, format="%.3f"},
-		{name="roomrolloff"     , type="number"  , min=0    , max=10   , default=0    , format="%.1f"},
-		{name="highlimit"       , type="boolean" ,                       default=true },
+		{name="type"            , type="constant",                        value="reverb"},
+		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="density"         , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="diffusion"       , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="gain"            , type="number"  , min=0     , max=1    , default=0.32 , exp=2, format="%.2f"},
+		{name="highgain"        , type="number"  , min=0     , max=1    , default=0.89 , exp=2, format="%.2f"},
+		{name="decaytime"       , type="number"  , min=0.1   , max=20   , default=1.49 , exp=2, format="%.1fsec"},
+		{name="decayhighratio"  , type="number"  , min=0.1   , max=2    , default=0.83 , exp=1, format="%.2f"},
+		{name="earlygain"       , type="number"  , min=0     , max=3.16 , default=0.05 , exp=2, format="%.2f"},
+		{name="earlydelay"      , type="number"  , min=0     , max=0.3  , default=0.05 , exp=2, format="%.2fsec"},
+		{name="lategain"        , type="number"  , min=0     , max=10   , default=1.26 , exp=2, format="%.2f"},
+		{name="latedelay"       , type="number"  , min=0     , max=0.1  , default=0.011, exp=2, format="%.3fsec"},
+		{name="airabsorption"   , type="number"  , min=0.892 , max=1    , default=0.994, exp=1, format="%.3f"},
+		{name="roomrolloff"     , type="number"  , min=0     , max=10   , default=0    , exp=1, format="%.1f"},
+		{name="highlimit"       , type="boolean" ,                        default=true },
 	},
 	{type="echo", column=3, title="Echo",
-		{name="type"            , type="constant",                       value="echo"},
-		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="delay"           , type="number"  , min=0    , max=0.207, default=0.1  , format="%.3fsec"},
-		{name="tapdelay"        , type="number"  , min=0    , max=0.404, default=0.1  , format="%.3fsec"},
-		{name="damping"         , type="number"  , min=0    , max=0.99 , default=0.5  , format="%.2f"},
-		{name="feedback"        , type="number"  , min=0    , max=1    , default=0.5  , format="%.2f"},
-		{name="spread"          , type="number"  , min=-1   , max=1    , default=-1   , format="%.2f"},
+		{name="type"            , type="constant",                        value="echo"},
+		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="delay"           , type="number"  , min=0     , max=0.207, default=0.1  , exp=2, format="%.3fsec"},
+		{name="tapdelay"        , type="number"  , min=0     , max=0.404, default=0.1  , exp=2, format="%.3fsec"},
+		{name="damping"         , type="number"  , min=0     , max=0.99 , default=0.5  , exp=1, format="%.2f"},
+		{name="feedback"        , type="number"  , min=0     , max=1    , default=0.5  , exp=2, format="%.2f"},
+		{name="spread"          , type="number"  , min=-1    , max=1    , default=-1   , exp=2, format="%.2f"},
 	},
 	{type="ringmodulator", column=4, title="Ring modulator",
-		{name="type"            , type="constant",                       value="ringmodulator"},
-		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="frequency"       , type="number"  , min=0    , max=8000 , default=440  , format="%.0fHz"},
-		{name="highcut"         , type="number"  , min=0    , max=24000, default=800  , format="%.0fHz"},
-		{name="waveform"        , type="enum"    ,                       default="sine", values={{"sine","sine"},{"sawtooth","sawtooth"},{"square","square"}}},
+		{name="type"            , type="constant",                        value="ringmodulator"},
+		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="frequency"       , type="number"  , min=0     , max=8000 , default=440  , exp=2, format="%.0fHz"},
+		{name="highcut"         , type="number"  , min=0     , max=24000, default=800  , exp=2, format="%.0fHz"},
+		{name="waveform"        , type="enum"    ,                        default="sine", values={{"sine","sine"},{"sawtooth","sawtooth"},{"square","square"}}},
 	},
 	{type="distortion", column=4, title="Distortion",
-		{name="type"            , type="constant",                       value="distortion"},
-		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="edge"            , type="number"  , min=0    , max=1    , default=0.2  , format="%.2f"},
-		{name="gain"            , type="number"  , min=0.01 , max=1    , default=0.2  , format="%.2f"},
-		{name="lowcut"          , type="number"  , min=80   , max=24000, default=8000 , format="%.0fHz"},
-		{name="center"          , type="number"  , min=80   , max=24000, default=3600 , format="%.0fHz"},
-		{name="bandwidth"       , type="number"  , min=80   , max=24000, default=3600 , format="%.0fHz"},
+		{name="type"            , type="constant",                        value="distortion"},
+		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
+		{name="edge"            , type="number"  , min=0     , max=1    , default=0.2  , exp=2, format="%.2f"},
+		{name="gain"            , type="number"  , min=0.01  , max=1    , default=0.2  , exp=2, format="%.2f"},
+		{name="lowcut"          , type="number"  , min=80    , max=24000, default=8000 , exp=2, format="%.0fHz"},
+		{name="center"          , type="number"  , min=80    , max=24000, default=3600 , exp=2, format="%.0fHz"},
+		{name="bandwidth"       , type="number"  , min=80    , max=24000, default=3600 , exp=2, format="%.0fHz"},
 	},
 }
 
@@ -105,6 +105,29 @@ print("getMaxSourceEffects", love.audio.getMaxSourceEffects())
 
 local DEFAULT_MASTER_VOLUME = .75
 love.audio.setVolume(DEFAULT_MASTER_VOLUME^2) -- Note: This just affects output from sources - not output from effects!
+
+local function expKeepSign(v, exp)
+	return (v < 0) and -(-v)^exp or v^exp
+end
+
+local function normalize(v, min,max, exp)
+	v   = expKeepSign(v  , 1/exp)
+	min = expKeepSign(min, 1/exp)
+	max = expKeepSign(max, 1/exp)
+	return (v-min) / (max-min)
+end
+local function denormalize(v01, min,max, exp)
+	min = expKeepSign(min, 1/exp)
+	max = expKeepSign(max, 1/exp)
+	return expKeepSign(min+v01*(max-min), exp)
+end
+
+local function getSliderValue(guiSlider, min,max, exp)
+	return denormalize(guiSlider:getValue(), min,max, exp)
+end
+local function setSliderValue(guiSlider, min,max, exp, v)
+	guiSlider:setValue(normalize(v, min,max, exp))
+end
 
 local function updateActiveEffects()
 	-- Effects.
@@ -115,18 +138,10 @@ local function updateActiveEffects()
 			for _, param in ipairs(effectInfo) do
 				local paramId = "param_"..effectInfo.type.."_"..param.name
 
-				if param.type == "constant" then
-					settings[param.name] = param.value
-
-				elseif param.type == "boolean" then
-					settings[param.name] = gui:find(paramId):isToggled()
-
-				elseif param.type == "number" then
-					settings[param.name] = gui:find(paramId):getValue()
-
-				elseif param.type == "enum" then
-					settings[param.name] = gui:find(paramId):findToggled().data.value
-
+				if     param.type == "constant" then  settings[param.name] = param.value
+				elseif param.type == "boolean"  then  settings[param.name] = gui:find(paramId):isToggled()
+				elseif param.type == "number"   then  settings[param.name] = getSliderValue(gui:find(paramId), param.min,param.max, param.exp)
+				elseif param.type == "enum"     then  settings[param.name] = gui:find(paramId):findToggled().data.value
 				else
 					error(param.type)
 				end
@@ -137,10 +152,10 @@ local function updateActiveEffects()
 			if gui:find("filterParam_"..effectInfo.type.."_active"):isToggled() then
 				local filterType = gui:find("filterParam_"..effectInfo.type.."_type"):findToggled().data.value
 				enabledOrFilterSettings = {
+					volume   = gui:find("filterParam_"..effectInfo.type.."_volume"  ):getValue()^2,
 					type     = filterType,
-					volume   = gui:find("filterParam_"..effectInfo.type.."_volume"  ):getValue(),
-					highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find("filterParam_"..effectInfo.type.."_highgain"):getValue() or nil,
-					lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find("filterParam_"..effectInfo.type.."_lowgain" ):getValue() or nil,
+					highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find("filterParam_"..effectInfo.type.."_highgain"):getValue()^2 or nil,
+					lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find("filterParam_"..effectInfo.type.."_lowgain" ):getValue()^2 or nil,
 				}
 			end
 
@@ -157,10 +172,10 @@ local function updateActiveEffects()
 	if gui:find("filterParam_active"):isToggled() then
 		local filterType = gui:find("filterParam_type"):findToggled().data.value
 		theSource:setFilter{
+			volume   = gui:find("filterParam_volume"):getValue()^2,
 			type     = filterType,
-			volume   = gui:find("filterParam_volume"  ):getValue(),
-			highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find("filterParam_highgain"):getValue() or nil,
-			lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find("filterParam_lowgain" ):getValue() or nil,
+			highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find("filterParam_highgain"):getValue()^2 or nil,
+			lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find("filterParam_lowgain" ):getValue()^2 or nil,
 		}
 	else
 		theSource:setFilter()
@@ -204,57 +219,72 @@ local function guiAddConstantParam(guiParent, labelWidth, label, v)
 	}
 	return guiRow
 end
+
 local function guiAddToggleParam(guiParent, labelWidth, id, label, toggled, onToggle)
 	local guiRow = guiParent:insert{"hbar",
 		{"button", id=id, canToggle=true, toggled=toggled, text=label, weight=1},
 	}
-	if onToggle then  guiRow:findType"button":on("toggle", onToggle)  end
+
+	if onToggle then
+		guiRow:findType"button":on("toggle", onToggle)
+	end
+
 	return guiRow
 end
-local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, min,max, v, vFormat, onChange)
+
+local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, min,max, v, exp, vFormat, onChange)
 	local guiRow = guiParent:insert{"hbar",
 		{"text", width=labelWidth, align="left", text=label..":"},
-		{"slider", id=id, min=min, max=max, value=v, weight=1},
+		{"slider", id=id, min=0, max=1, value=normalize(v, min,max, exp), weight=1},
 		{"text", style="output", width=outputWidth, text=string.format(vFormat, v)},
 	}
+
 	guiRow:findType"slider":on("valuechange", function(guiSlider)
-		guiRow:find"output":setText(string.format(vFormat, guiSlider:getValue()))
+		guiRow:find"output":setText(string.format(vFormat, getSliderValue(guiSlider, min,max, exp)))
 		if onChange then  onChange(guiSlider)  end
 	end)
+
 	guiRow:findType"slider":on("mousepressed", function(guiSlider, event, mx,my, mbutton, pressCount)
 		if mbutton ~= 2 then  return  end
+
 		local clipboardN = tonumber(love.system.getClipboardText())
-		guiSlider:showMenu({
+		local items = {
 			":: "..label.." ::",
-			"Copy ("..guiSlider:getValue()..")",
+			"Copy ("..getSliderValue(guiSlider, min,max, exp)..")",
 			clipboardN and "Paste ("..clipboardN..")" or "Paste",
 			"Reset ("..v..")",
-		}, mx+2,my+2, function(choice)
+		}
+
+		guiSlider:showMenu(items, mx+2,my+2, function(choice)
 			if choice == 2 then
-				love.system.setClipboardText(tostring(guiSlider:getValue()))
+				love.system.setClipboardText(tostring(getSliderValue(guiSlider, min,max, exp)))
 
 			elseif choice == 3 then
 				if not clipboardN then  return  end
-				guiSlider:setValue(clipboardN)
+				setSliderValue(guiSlider, min,max, exp, clipboardN)
 				guiSlider:trigger("valuechange")
 
 			elseif choice == 4 then
-				guiSlider:setValue(v)
+				setSliderValue(guiSlider, min,max, exp, v)
 				guiSlider:trigger("valuechange")
 			end
 		end)
 	end)
+
 	return guiRow
 end
+
 local function guiAddRadioParam(guiParent, labelWidth, id, label, values--[[{ {value1,label[,tooltip]}, ... }]], v, onChange)
 	local guiRow = guiParent:insert{"hbar",
 		{"text", width=labelWidth, align="left", text=label..":"},
 		{"hbar", id=id, weight=1},
 	}
+
 	for _, valueInfo in ipairs(values) do
 		local guiButton = guiRow:findType"hbar":insert{"button", data={value=valueInfo[1]}, weight=1, radio=id, canToggle=true, toggled=(valueInfo[1]==v), text=valueInfo[2], tooltip=valueInfo[3]}
 		if onChange then  guiButton:on("toggleon", onChange)  end
 	end
+
 	return guiRow
 end
 
@@ -265,6 +295,7 @@ gui:defineStyle("_MENU", {
 	{background="whatever"},
 })
 gui:defineStyle("output", {id="output", align="right", font=fontSmall})
+gui:defineStyle("biglabel", {font=fontLarge})
 
 gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(),
 	{"vbar", relativeWidth=1, relativeHeight=1, padding=SPACING, canScrollY=true,
@@ -282,14 +313,14 @@ gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(
 				{"text", text="Clipboard:"},
 				{"button", id="copyEffects", text="Effects", canToggle=true, toggled=true},
 				{"button", id="copyFilters", text="Filters", canToggle=true, toggled=true},
-				{"button", id="copyToClipboard", text="Copy!"},
+				{"button", id="copyToClipboard", text="Export!"},
 			},
 		},
-		{"hbar", spacing=SPACING,
-			{"vbar", id="column1", spacing=SPACING, weight=1},
-			{"vbar", id="column2", spacing=SPACING, weight=1},
-			{"vbar", id="column3", spacing=SPACING, weight=1},
-			{"vbar", id="column4", spacing=SPACING, weight=1},
+		{"hbar", id="columns", spacing=SPACING, homogeneous=true,
+			{"vbar", spacing=SPACING, weight=1},
+			{"vbar", spacing=SPACING, weight=1},
+			{"vbar", spacing=SPACING, weight=1},
+			{"vbar", spacing=SPACING, weight=1},
 		},
 	},
 }
@@ -321,12 +352,12 @@ do
 	local labelWidth = math.max(
 		fontNormal:getWidth"sound:",
 		fontNormal:getWidth"volume:",
-		fontNormal:getWidth"f_volume:",
-		fontNormal:getWidth"f_highgain:",
-		fontNormal:getWidth"f_lowgain:"
-	)
+		fontNormal:getWidth"volume:",
+		fontNormal:getWidth"highgain:",
+		fontNormal:getWidth"lowgain:"
+	) + LABEL_EXTRA_WIDTH
 
-	local guiSource = gui:find"column1":insert{"vbar", spacing=SPACING, background="whatever", padding=SPACING}
+	local guiSource = gui:find"columns"[1]:insert{"vbar", spacing=SPACING, background="whatever", padding=SPACING}
 
 	-- Header.
 	guiSource:insert{"hbar", spacing=SPACING,
@@ -344,30 +375,33 @@ do
 		updateActiveEffects()
 	end)
 
-	guiAddSliderParam(guiSource, labelWidth, fontSmall:getWidth"1.00", "sourceVolume", "volume", 0,1, 1, "%.2f", function(guiSlider)
+	guiAddSliderParam(guiSource, labelWidth, fontSmall:getWidth"1.00", "sourceVolume", "volume", 0,1, 1, 2, "%.2f", function(guiSlider)
 		theSource:setVolume(guiSlider:getValue()^2)
 	end)
 
 	-- Filter parameters.
-	local guiFilterRows = guiSource:insert{"vbar", id="filterParams", hidden=true}
+	local guiFilterRows = guiSource:insert{"vbar", id="filterParams", hidden=true,
+		{"text", style="biglabel", text="Filter"},
+	}
 
-	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "f_type", {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}, "lowpass", function(guiButton)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_volume", "volume", 0,1, 1, 2, "%.2f", updateActiveEffects)
+
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "type", {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}, "lowpass", function(guiButton)
 		guiFilterRows:find("filterParam_highgain"):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
 		guiFilterRows:find("filterParam_lowgain" ):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
 		updateActiveEffects()
 	end)
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_volume"  , "f_volume"  , 0,1, 1, "%.2f", updateActiveEffects)
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_highgain", "f_highgain", 0,1, 1, "%.2f", updateActiveEffects)
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_lowgain" , "f_lowgain" , 0,1, 1, "%.2f", updateActiveEffects):findType"slider":setActive(false)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_highgain", "highgain", 0,1, 1, 2, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_lowgain" , "lowgain" , 0,1, 1, 2, "%.2f", updateActiveEffects):findType"slider":setActive(false)
 end
 
 -- Effects.
 for _, effectInfo in ipairs(EFFECTS) do
 	local labelWidth = math.max(
-		fontNormal:getWidth"f_volume:",
-		fontNormal:getWidth"f_highgain:",
-		fontNormal:getWidth"f_lowgain:"
+		fontNormal:getWidth"volume:",
+		fontNormal:getWidth"highgain:",
+		fontNormal:getWidth"lowgain:"
 	)
 	local numberOutputWidth = fontSmall:getWidth"1.00"
 
@@ -387,7 +421,7 @@ for _, effectInfo in ipairs(EFFECTS) do
 	labelWidth        = labelWidth + LABEL_EXTRA_WIDTH
 	numberOutputWidth = numberOutputWidth + 5
 
-	local guiColumn = gui:find("column"..effectInfo.column)
+	local guiColumn = gui:find"columns"[effectInfo.column]
 	local guiEffect = guiColumn:insert{"vbar", spacing=SPACING, background="whatever", padding=SPACING}
 
 	-- Header.
@@ -396,37 +430,47 @@ for _, effectInfo in ipairs(EFFECTS) do
 		{"button", id="filterParam_"..effectInfo.type.."_active", canToggle=true, text="Filter"},
 		{"button", id="param_"..effectInfo.type.."_active", canToggle=true, text="Active"},
 	}
-	guiEffect:find("param_"..effectInfo.type.."_active"):on("toggle", updateActiveEffects)
+
+	guiEffect:find("param_"..effectInfo.type.."_active"):on("toggle", function(guiButton)
+		guiEffect:find"body":setVisible(guiButton:isToggled())
+		updateActiveEffects()
+	end)
+
 	guiEffect:find("filterParam_"..effectInfo.type.."_active"):on("toggle", function(guiButton)
 		guiEffect:find"filterParams":setVisible(guiButton:isToggled())
 		updateActiveEffects()
 	end)
 
+	local guiBody = guiEffect:insert{"vbar", id="body", spacing=SPACING, hidden=true}
+
 	-- Effect parameters.
 	for _, param in ipairs(effectInfo) do
 		local paramId = "param_"..effectInfo.type.."_"..param.name
 
-		if     param.type == "constant" then  guiAddConstantParam(guiEffect, labelWidth, param.name, param.value)
-		elseif param.type == "boolean"  then  guiAddToggleParam(guiEffect, labelWidth, paramId, param.name, param.default, updateActiveEffects)
-		elseif param.type == "number"   then  guiAddSliderParam(guiEffect, labelWidth, numberOutputWidth, paramId, param.name, param.min,param.max, param.default, param.format, updateActiveEffects)
-		elseif param.type == "enum"     then  guiAddRadioParam(guiEffect, labelWidth, paramId, param.name, param.values, param.default, updateActiveEffects)
+		if     param.type == "constant" then  guiAddConstantParam(guiBody, labelWidth, param.name, param.value)
+		elseif param.type == "boolean"  then  guiAddToggleParam(guiBody, labelWidth, paramId, param.name, param.default, updateActiveEffects)
+		elseif param.type == "number"   then  guiAddSliderParam(guiBody, labelWidth, numberOutputWidth, paramId, param.name, param.min,param.max, param.default, param.exp, param.format, updateActiveEffects)
+		elseif param.type == "enum"     then  guiAddRadioParam(guiBody, labelWidth, paramId, param.name, param.values, param.default, updateActiveEffects)
 		else
 			error(param.type)
 		end
 	end
 
 	-- Filter parameters.
-	local guiFilterRows = guiEffect:insert{"vbar", id="filterParams", hidden=true}
+	local guiFilterRows = guiBody:insert{"vbar", id="filterParams", hidden=true,
+		{"text", style="biglabel", text="Filter"},
+	}
 
-	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_"..effectInfo.type.."_type", "f_type", {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}, "lowpass", function(guiButton)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_volume", "volume", 0,1, 1, 2, "%.2f", updateActiveEffects)
+
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_"..effectInfo.type.."_type", "type", {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}, "lowpass", function(guiButton)
 		guiFilterRows:find("filterParam_"..effectInfo.type.."_highgain"):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
 		guiFilterRows:find("filterParam_"..effectInfo.type.."_lowgain" ):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
 		updateActiveEffects()
 	end)
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_volume"  , "f_volume"  , 0,1, 1, "%.2f", updateActiveEffects)
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_highgain", "f_highgain", 0,1, 1, "%.2f", updateActiveEffects)
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_lowgain" , "f_lowgain" , 0,1, 1, "%.2f", updateActiveEffects):findType"slider":setActive(false)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_highgain", "highgain", 0,1, 1, 2, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_lowgain" , "lowgain" , 0,1, 1, 2, "%.2f", updateActiveEffects):findType"slider":setActive(false)
 end
 
 --
