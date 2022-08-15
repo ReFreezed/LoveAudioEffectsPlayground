@@ -20,7 +20,7 @@ local EFFECTS = {
 	{type="chorus", column=1, title="Chorus",
 		{name="type"            , type="constant",                       value="chorus"},
 		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="waveform"        , type="enum"    ,                       default="triangle", values={"sine","triangle"}},
+		{name="waveform"        , type="enum"    ,                       default="triangle", values={{"sine","sine"},{"triangle","triangle"}}},
 		{name="phase"           , type="number"  , min=-180 , max=180  , default=90   , format="%.0fdeg"},
 		{name="rate"            , type="number"  , min=0    , max=10   , default=1.1  , format="%.1fHz"},
 		{name="depth"           , type="number"  , min=0    , max=1    , default=0.1  , format="%.2f"},
@@ -30,7 +30,7 @@ local EFFECTS = {
 	{type="flanger", column=1, title="Flanger",
 		{name="type"            , type="constant",                       value="flanger"},
 		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
-		{name="waveform"        , type="enum"    ,                       default="triangle", values={"sine","triangle"}},
+		{name="waveform"        , type="enum"    ,                       default="triangle", values={{"sine","sine"},{"triangle","triangle"}}},
 		{name="phase"           , type="number"  , min=-180 , max=180  , default=0    , format="%.0fdeg"},
 		{name="rate"            , type="number"  , min=0    , max=10   , default=0.27 , format="%.2fHz"},
 		{name="depth"           , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
@@ -87,7 +87,7 @@ local EFFECTS = {
 		{name="volume"          , type="number"  , min=0    , max=1    , default=1    , format="%.2f"},
 		{name="frequency"       , type="number"  , min=0    , max=8000 , default=440  , format="%.0fHz"},
 		{name="highcut"         , type="number"  , min=0    , max=24000, default=800  , format="%.0fHz"},
-		{name="waveform"        , type="enum"    ,                       default="sine", values={"sine","sawtooth","square"}},
+		{name="waveform"        , type="enum"    ,                       default="sine", values={{"sine","sine"},{"sawtooth","sawtooth"},{"square","square"}}},
 	},
 	{type="distortion", column=4, title="Distortion",
 		{name="type"            , type="constant",                       value="distortion"},
@@ -222,15 +222,22 @@ local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, 
 	end)
 	guiRow:findType"slider":on("mousepressed", function(guiSlider, event, mx,my, mbutton, pressCount)
 		if mbutton ~= 2 then  return  end
+		local clipboardN = tonumber(love.system.getClipboardText())
 		guiSlider:showMenu({
 			":: "..label.." ::",
 			"Copy ("..guiSlider:getValue()..")",
-			-- "Paste", -- @Incomplete
+			clipboardN and "Paste ("..clipboardN..")" or "Paste",
 			"Reset ("..v..")",
 		}, mx+2,my+2, function(choice)
 			if choice == 2 then
 				love.system.setClipboardText(tostring(guiSlider:getValue()))
+
 			elseif choice == 3 then
+				if not clipboardN then  return  end
+				guiSlider:setValue(clipboardN)
+				guiSlider:trigger("valuechange")
+
+			elseif choice == 4 then
 				guiSlider:setValue(v)
 				guiSlider:trigger("valuechange")
 			end
@@ -238,13 +245,13 @@ local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, 
 	end)
 	return guiRow
 end
-local function guiAddRadioParam(guiParent, labelWidth, id, label, values, currentValue, onChange)
+local function guiAddRadioParam(guiParent, labelWidth, id, label, values--[[{ {value1,label[,tooltip]}, ... }]], v, onChange)
 	local guiRow = guiParent:insert{"hbar",
 		{"text", width=labelWidth, align="left", text=label..":"},
 		{"hbar", id=id, weight=1},
 	}
-	for _, v in ipairs(values) do
-		local guiButton = guiRow:findType"hbar":insert{"button", data={value=v}, weight=1, radio=id, canToggle=true, toggled=(v==currentValue), text=tostring(v)}
+	for _, valueInfo in ipairs(values) do
+		local guiButton = guiRow:findType"hbar":insert{"button", data={value=valueInfo[1]}, weight=1, radio=id, canToggle=true, toggled=(valueInfo[1]==v), text=valueInfo[2], tooltip=valueInfo[3]}
 		if onChange then  guiButton:on("toggleon", onChange)  end
 	end
 	return guiRow
@@ -331,10 +338,8 @@ do
 	end)
 
 	-- Source parameters.
-	guiAddRadioParam(guiSource, labelWidth, "sourceSound", "sound", {"Fight","Guitar","Speech"}, "Guitar", function(guiButton)
-		if guiButton.data.value == "Fight"  then  loadSound("sounds/fight.ogg" )  end
-		if guiButton.data.value == "Guitar" then  loadSound("sounds/guitar.wav")  end
-		if guiButton.data.value == "Speech" then  loadSound("sounds/speech.ogg")  end
+	guiAddRadioParam(guiSource, labelWidth, "sourceSound", "sound", {{"sounds/fight.ogg","Fight"},{"sounds/guitar.wav","Guitar"},{"sounds/speech.ogg","Speech"}}, "sounds/guitar.wav", function(guiButton)
+		loadSound(guiButton.data.value)
 		updateActiveEffects()
 	end)
 
@@ -345,7 +350,7 @@ do
 	-- Filter parameters.
 	local guiFilterRows = guiSource:insert{"vbar", id="filterParams", hidden=true}
 
-	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "f_type", {"lowpass","highpass","bandpass"}, "lowpass", function(guiButton)
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "f_type", {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}, "lowpass", function(guiButton)
 		guiFilterRows:find("filterParam_highgain"):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
 		guiFilterRows:find("filterParam_lowgain" ):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
 		updateActiveEffects()
@@ -412,7 +417,7 @@ for _, effectInfo in ipairs(EFFECTS) do
 	-- Filter parameters.
 	local guiFilterRows = guiEffect:insert{"vbar", id="filterParams", hidden=true}
 
-	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_"..effectInfo.type.."_type", "f_type", {"lowpass","highpass","bandpass"}, "lowpass", function(guiButton)
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_"..effectInfo.type.."_type", "f_type", {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}, "lowpass", function(guiButton)
 		guiFilterRows:find("filterParam_"..effectInfo.type.."_highgain"):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
 		guiFilterRows:find("filterParam_"..effectInfo.type.."_lowgain" ):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
 		updateActiveEffects()
