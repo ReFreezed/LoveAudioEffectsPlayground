@@ -3,8 +3,8 @@ function love.conf(t)
 	t.version  = "11.4"
 
 	t.window.title     = "LÖVE Audio Effects Playground"
-	t.window.width     = 1200
-	t.window.height    = 800
+	t.window.width     = 1100
+	t.window.height    = 760
 	t.window.resizable = true
 
 	t.modules.audio    = true
