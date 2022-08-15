@@ -1,11 +1,18 @@
+_G.DEV = 1==1
+
 function love.conf(t)
 	t.identity = "LoveAudioEffectsPlayground"
 	t.version  = "11.4"
 
 	t.window.title     = "LÖVE Audio Effects Playground"
-	t.window.width     = 1100
-	t.window.height    = 760
 	t.window.resizable = true
+	if DEV then
+		t.window.width  = 1300
+		t.window.height = 800
+	else
+		t.window.width  = 1100
+		t.window.height = 680
+	end
 
 	t.modules.audio    = true
 	t.modules.data     = false
