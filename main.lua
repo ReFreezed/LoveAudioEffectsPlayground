@@ -10,8 +10,8 @@
 io.stdout:setvbuf("no")
 io.stderr:setvbuf("no")
 
+local theSource = nil
 local gui
-local source
 
 --
 -- Audio.
@@ -104,7 +104,7 @@ print("getMaxSceneEffects ", love.audio.getMaxSceneEffects())
 print("getMaxSourceEffects", love.audio.getMaxSourceEffects())
 
 local DEFAULT_MASTER_VOLUME = .75
-love.audio.setVolume(DEFAULT_MASTER_VOLUME^2)
+love.audio.setVolume(DEFAULT_MASTER_VOLUME^2) -- Note: This just affects output from sources - not output from effects!
 
 local function updateActiveEffects()
 	-- Effects.
@@ -145,10 +145,10 @@ local function updateActiveEffects()
 			end
 
 			love.audio.setEffect(effectInfo.type, settings)
-			source:setEffect(effectInfo.type, enabledOrFilterSettings)
+			theSource:setEffect(effectInfo.type, enabledOrFilterSettings)
 
 		else
-			source:setEffect(effectInfo.type, false)
+			theSource:setEffect(effectInfo.type, false)
 			love.audio.setEffect(effectInfo.type, false)
 		end
 	end
@@ -156,14 +156,14 @@ local function updateActiveEffects()
 	-- Filter.
 	if gui:find("filterParam_active"):isToggled() then
 		local filterType = gui:find("filterParam_type"):findToggled().data.value
-		source:setFilter{
+		theSource:setFilter{
 			type     = filterType,
 			volume   = gui:find("filterParam_volume"  ):getValue(),
 			highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find("filterParam_highgain"):getValue() or nil,
 			lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find("filterParam_lowgain" ):getValue() or nil,
 		}
 	else
-		source:setFilter()
+		theSource:setFilter()
 	end
 end
 
@@ -171,17 +171,18 @@ local function loadSound(path)
 	local isPlaying = false
 	local vol       = 1
 
-	if source then
-		isPlaying = source:isPlaying()
-		vol       = source:getVolume()
-		source:stop()
+	if theSource then
+		isPlaying = theSource:isPlaying()
+		vol       = theSource:getVolume()
+		theSource:stop()
+		theSource:release()
 	end
 
-	source = love.audio.newSource(path, "static")
-	source:setVolume(vol)
-	source:setLooping(true)
+	theSource = love.audio.newSource(path, "static")
+	theSource:setVolume(vol)
+	theSource:setLooping(true)
 
-	if isPlaying then  source:play()  end
+	if isPlaying then  theSource:play()  end
 end
 
 loadSound("sounds/guitar.wav")
@@ -270,10 +271,10 @@ gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(
 		{"hbar", spacing=SPACING, background="whatever", padding=SPACING,
 			{"text", text="LÖVE Audio Effects Playground", spacing=2*SPACING, font=fontLarge},
 			{"vbar", spacing=SPACING,
-				{"button", id="play", text="Play", tooltip="Shortcut: Space", canToggle=true, weight=1},
+				{"button", id="play", text="Play", tooltip="Shortcut: Space", canToggle=true, weight=1}, -- @Cleanup: Move to Source section.
 				{"canvas", id="position", height=2},
 			},
-			{"hbar", spacing=SPACING,
+			{"hbar", spacing=SPACING, hidden=1==1,
 				{"text", text="Master:"},
 				{"slider", id="masterVolume", min=0, max=1, value=DEFAULT_MASTER_VOLUME, width=100},
 			},
@@ -294,17 +295,17 @@ gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(
 }
 
 gui:find"play":on("toggle", function(guiSlider)
-	if source:isPlaying() then
-		source:stop()
+	if theSource:isPlaying() then
+		theSource:stop()
 	else
-		source:play()
+		theSource:play()
 	end
 end)
 
 gui:find"position":on("draw", function(guiCanvas, event, cw,ch)
 	love.graphics.clear(0, 0, 0, 1)
 	love.graphics.setColor(1, 1, 1)
-	love.graphics.rectangle("fill", 0,0, 1+(cw-1)*source:tell()/source:getDuration(),ch)
+	love.graphics.rectangle("fill", 0,0, 1+(cw-1)*theSource:tell()/theSource:getDuration(),ch)
 end)
 
 gui:find"masterVolume":on("valuechange", function(guiSlider)
@@ -344,7 +345,7 @@ do
 	end)
 
 	guiAddSliderParam(guiSource, labelWidth, fontSmall:getWidth"1.00", "sourceVolume", "volume", 0,1, 1, "%.2f", function(guiSlider)
-		source:setVolume(guiSlider:getValue()^2)
+		theSource:setVolume(guiSlider:getValue()^2)
 	end)
 
 	-- Filter parameters.
