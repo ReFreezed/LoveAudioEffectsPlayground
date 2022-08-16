@@ -1,3 +1,14 @@
+--[[============================================================
+--=
+--=  Effect presets
+--=
+--=-------------------------------------------------------------
+--=
+--=  LÖVE Audio Effects Playground
+--=  by Marcus 'ReFreezed' Thunström
+--=
+--============================================================]]
+
 local function parsePresets(presetsStr)
 	local columns = nil
 	local presets = {}

@@ -2935,6 +2935,7 @@ local InputField = (function()
 
 local COLOR_WHITE             = {1,1,1,1}
 local COLOR_TRANSPARENT_WHITE = {1,1,1,0}
+local COLOR_TEXT              = {0x1b/255, 0x4d/255, 0x68/255} -- @Edit
 
 local LCTRL = (love.system.getOS() == "OS X") and "lgui" or "lctrl"
 local RCTRL = (love.system.getOS() == "OS X") and "rgui" or "rctrl"
@@ -10119,7 +10120,7 @@ end
 -- Tell LÖVE to use the leaf's resulting text color.
 function Cs.leaf.useTextColor(leaf, opacity)
 	local color = leaf._textColor
-	useColor((color or COLOR_WHITE), opacity)
+	useColor((color or COLOR_TEXT), opacity) -- @Edit
 	return color ~= nil
 end
 

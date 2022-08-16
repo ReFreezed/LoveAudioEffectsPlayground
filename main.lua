@@ -10,6 +10,8 @@
 io.stdout:setvbuf("no")
 io.stderr:setvbuf("no")
 
+love.keyboard.setKeyRepeat(true)
+
 if not DEV then
 	love.window.maximize()
 end
@@ -258,26 +260,34 @@ loadSound(true, "sounds/guitar.wav")
 --
 -- GUI.
 --
-local fontSmall  = love.graphics.newFont(10)
-local fontNormal = love.graphics.newFont(12)
-local fontLarge  = love.graphics.newFont(16)
+local fontSmall   = love.graphics.newFont("fonts/NotoSans-Medium.ttf"  , 10)
+local fontNormal  = love.graphics.newFont("fonts/NotoSans-Medium.ttf"  , 13)
+local fontButtons = love.graphics.newFont("fonts/NotoSans-SemiBold.ttf", 13)
+local fontLarge   = love.graphics.newFont("fonts/NotoSans-SemiBold.ttf", 16)
 
 local SPACING           = 8
 local LABEL_EXTRA_WIDTH = 5
 
+-- r, g, b = Color"rrggbb"
+function _G.Color(hexStr)
+	return tonumber(hexStr:sub(1, 2), 16) / 255
+	     , tonumber(hexStr:sub(3, 4), 16) / 255
+	     , tonumber(hexStr:sub(5, 6), 16) / 255
+end
+
 -- showTextPrompt( title, label, initialValue, callback )
 -- callback( path|nil )
 local function showTextPrompt(title, label, v, cb)
-	local guiPrompt = gui:getRoot():insert{"container", relativeWidth=1, relativeHeight=1, closable=true, captureGuiInput=true, confineNavigation=true,
-		{"vbar", background="whatever", width=300, padding=SPACING, anchorX=.5, anchorY=.5, originX=.5, originY=.5,
+	local guiPrompt = gui:getRoot():insert{"container", background="faded", relativeWidth=1, relativeHeight=1, closable=true, captureGuiInput=true, confineNavigation=true,
+		{"vbar", background="shadowbox", width=300, padding=SPACING, anchorX=.5, anchorY=.5, originX=.5, originY=.5,
 			{"text", text=title, spacing=SPACING},
 			{"hbar",
 				{"text", text=label, spacing=2},
 				{"input", value=v, weight=1},
 			},
 			{"hbar", homogeneous=true,
-				{"button", weight=1, id="ok"   , text="OK"    },
-				{"button", weight=1, close=true, text="Cancel"},
+				{"button", style="button", weight=1, id="ok"   , text="OK"    },
+				{"button", style="button", weight=1, close=true, text="Cancel"},
 			},
 		},
 	}
@@ -313,7 +323,7 @@ end
 
 local function guiAddToggleParam(guiParent, labelWidth, id, label, toggled, onToggle)
 	local guiRow = guiParent:insert{"hbar",
-		{"button", id=id, canToggle=true, toggled=toggled, text=label, weight=1},
+		{"button", style="button", id=id, canToggle=true, toggled=toggled, text=label, weight=1},
 	}
 
 	if onToggle then
@@ -393,7 +403,7 @@ local function guiAddRadioParam(guiParent, labelWidth, id, label, values--[[{ {v
 	}
 
 	for _, valueInfo in ipairs(values) do
-		local guiButton = guiRow:findType"hbar":insert{"button", data={value=valueInfo[1]}, weight=1, radio=id, canToggle=true, toggled=(valueInfo[1]==v), text=valueInfo[2], tooltip=valueInfo[3]}
+		local guiButton = guiRow:findType"hbar":insert{"button", style="button", data={value=valueInfo[1]}, weight=1, radio=id, canToggle=true, toggled=(valueInfo[1]==v), text=valueInfo[2], tooltip=valueInfo[3]}
 		if onChange then  guiButton:on("toggleon", onChange)  end
 	end
 
@@ -402,19 +412,21 @@ end
 
 gui = require"Gui"()
 gui:setFont(fontNormal)
+gui:setTheme(require"theme")
 
-gui:defineStyle("_MENU", {
-	{background="whatever", padding=2},
+gui:defineStyle("_MENU", {background="faded",
+	{background="shadowbox", padding=2},
 })
+gui:defineStyle("button", {font=fontButtons})
 gui:defineStyle("output", {id="output", align="right", font=fontSmall})
 gui:defineStyle("biglabel", {font=fontLarge})
 
 gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(),
 	{"vbar", relativeWidth=1, relativeHeight=1, padding=SPACING, canScrollY=true,
-		{"hbar", spacing=SPACING, background="whatever", padding=SPACING,
+		{"hbar", spacing=SPACING, background="box", padding=SPACING,
 			{"text", text="LÖVE Audio Effects Playground", spacing=2*SPACING, font=fontLarge},
 			{"vbar", spacing=SPACING,
-				{"button", id="play", text="Play", tooltip="Shortcut: Space", canToggle=true, weight=1}, -- @Cleanup: Move to Source section.
+				{"button", style="button", id="play", text="Play", tooltip="Shortcut: Space", canToggle=true, weight=1}, -- @Cleanup: Move to Source section.
 				{"canvas", id="position", height=2},
 			},
 			{"hbar", spacing=SPACING, hidden=1==1,
@@ -423,9 +435,9 @@ gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(
 			},
 			{"hbar", spacing=SPACING,
 				{"text", text="Clipboard:"},
-				{"button", id="copyEffects", text="Effects", canToggle=true, toggled=true},
-				{"button", id="copyFilters", text="Filters", canToggle=true, toggled=true},
-				{"button", id="copyToClipboard", text="Export!"},
+				{"button", style="button", id="copyEffects", text="Effects", canToggle=true, toggled=true},
+				{"button", style="button", id="copyFilters", text="Filters", canToggle=true, toggled=true},
+				{"button", style="button", id="copyToClipboard", text="Export!"},
 			},
 		},
 		{"hbar", id="columns", spacing=SPACING, homogeneous=true,
@@ -446,9 +458,9 @@ gui:find"play":on("toggle", function(guiButton)
 end)
 
 gui:find"position":on("draw", function(guiCanvas, event, cw,ch)
-	love.graphics.clear(0, 0, 0, 1)
-	love.graphics.setColor(1, 1, 1)
-	love.graphics.rectangle("fill", 0,0, 1+(cw-1)*theSource:tell()/theSource:getDuration(),ch)
+	love.graphics.clear(Color"b1e3fa")
+	love.graphics.setColor(Color"1b4d68")
+	love.graphics.rectangle("fill", 0,0, 2+(cw-2)*theSource:tell()/theSource:getDuration(),ch)
 end)
 
 gui:find"masterVolume":on("valuechange", function(guiSlider)
@@ -469,12 +481,12 @@ do
 		fontNormal:getWidth"highgain:",
 	0) + LABEL_EXTRA_WIDTH
 
-	local guiSource = gui:find"columns"[1]:insert{"vbar", id="source", spacing=SPACING, background="whatever", padding=SPACING}
+	local guiSource = gui:find"columns"[1]:insert{"vbar", id="source", spacing=SPACING, background="box", padding=SPACING}
 
 	-- Header.
 	guiSource:insert{"hbar", spacing=SPACING,
 		{"text", align="left", text="Source", font=fontLarge, weight=1},
-		{"button", id="filterParam_active", canToggle=true, text="Filter"},
+		{"button", style="button", id="filterParam_active", canToggle=true, text="Filter"},
 	}
 	guiSource:find"filterParam_active":on("toggle", function(guiButton)
 		guiSource:find"filterParams":setVisible(guiButton:isToggled())
@@ -517,7 +529,7 @@ do
 
 	guiSource:insert{"hbar", id="customSoundError", hidden=true,
 		{"text", width=labelWidth},
-		{"text", id="_text", wrapText=true, align="left", textColor={1,.5,.5}},
+		{"text", id="_text", wrapText=true, align="left", textColor={.9,.1,.1}},
 	}
 
 	guiAddSliderParam(guiSource, labelWidth, fontSmall:getWidth"1.00", "sourceVolume", "volume", 0,1, 1, 2, "%.2f", function(guiSlider)
@@ -567,14 +579,14 @@ for _, effectInfo in ipairs(EFFECTS) do
 	numberOutputWidth = numberOutputWidth + 5
 
 	local guiColumn = gui:find"columns"[effectInfo.column]
-	local guiEffect = guiColumn:insert{"vbar", spacing=SPACING, background="whatever", padding=SPACING}
+	local guiEffect = guiColumn:insert{"vbar", spacing=SPACING, background="box", padding=SPACING}
 
 	-- Header.
 	guiEffect:insert{"hbar", spacing=SPACING,
 		{"text", align="left", text=effectInfo.title, font=fontLarge, weight=1},
-		{"button", id="presets_"    ..effectInfo.type           , text="Presets"},
-		{"button", id="filterParam_"..effectInfo.type.."_active", text="Filter", canToggle=true},
-		{"button", id="param_"      ..effectInfo.type.."_active", text="Active", canToggle=true},
+		{"button", style="button", id="presets_"    ..effectInfo.type           , text="Presets"},
+		{"button", style="button", id="filterParam_"..effectInfo.type.."_active", text="Filter", canToggle=true},
+		{"button", style="button", id="param_"      ..effectInfo.type.."_active", text="Active", canToggle=true},
 	}
 
 	guiEffect:find("param_"..effectInfo.type.."_active"):on("toggle", function(guiButton)
@@ -662,6 +674,7 @@ function love.keypressed(key, scancode, isRepeat)
 		love.event.quit()
 
 	elseif key == "space" then
+		if isRepeat then  return  end
 		gui:find"play":setToggled(not gui:find"play":isToggled())
 	end
 end
@@ -689,6 +702,7 @@ function love.update(dt)
 	gui:update(dt)
 end
 function love.draw()
+	love.graphics.clear(Color"b1e3fa")
 	gui:draw()
 end
 
