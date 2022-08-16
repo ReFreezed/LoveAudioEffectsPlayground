@@ -9,14 +9,19 @@
 --=
 --============================================================]]
 
-io.stdout:setvbuf("no")
-io.stderr:setvbuf("no")
-
-love.keyboard.setKeyRepeat(true)
-
 if not DEV then
 	love.window.maximize()
 end
+
+io.stdout:setvbuf("no")
+io.stderr:setvbuf("no")
+
+_G.TAU = 2*math.pi
+_G.LG  = love.graphics
+
+require"functions"
+
+love.keyboard.setKeyRepeat(true)
 
 local theSource = nil
 local gui
@@ -116,22 +121,6 @@ print("getMaxSourceEffects", love.audio.getMaxSourceEffects())
 local DEFAULT_MASTER_VOLUME = .75
 love.audio.setVolume(DEFAULT_MASTER_VOLUME^2) -- Note: This just affects output from sources - not output from effects!
 
-local function expKeepSign(v, exp)
-	return (v < 0) and -(-v)^exp or v^exp
-end
-
-local function normalize(v, min,max, exp)
-	v   = expKeepSign(v  , 1/exp)
-	min = expKeepSign(min, 1/exp)
-	max = expKeepSign(max, 1/exp)
-	return (v-min) / (max-min)
-end
-local function denormalize(v01, min,max, exp)
-	min = expKeepSign(min, 1/exp)
-	max = expKeepSign(max, 1/exp)
-	return expKeepSign(min+v01*(max-min), exp)
-end
-
 local function getSliderValue(guiSlider, min,max, exp)
 	return denormalize(guiSlider:getValue(), min,max, exp)
 end
@@ -190,14 +179,6 @@ local function updateActiveEffects()
 	else
 		theSource:setFilter()
 	end
-end
-
-local function formatBytes(n)
-	if     n >= 1024^3 then  return string.format("%.2f GiB"  , n/(1024^3))
-	elseif n >= 1024^2 then  return string.format("%.2f MiB"  , n/(1024^2))
-	elseif n >= 1024   then  return string.format("%.2f KiB"  , n/(1024  ))
-	elseif n ~= 1      then  return string.format("%.0f bytes", n)
-	else                     return                  "1 byte"  end
 end
 
 local currentSoundPath = ""
@@ -262,20 +243,16 @@ loadSound(true, "sounds/guitar.wav")
 --
 -- GUI.
 --
-local fontSmall   = love.graphics.newFont("fonts/NotoSans-Medium.ttf"  , 10)
-local fontNormal  = love.graphics.newFont("fonts/NotoSans-Medium.ttf"  , 13)
-local fontButtons = love.graphics.newFont("fonts/NotoSans-SemiBold.ttf", 13)
-local fontLarge   = love.graphics.newFont("fonts/NotoSans-SemiBold.ttf", 16)
+local fontSmall   = LG.newFont("fonts/NotoSans-Medium.ttf"  , 10)
+local fontNormal  = LG.newFont("fonts/NotoSans-Medium.ttf"  , 13)
+local fontButtons = LG.newFont("fonts/NotoSans-SemiBold.ttf", 13)
+local fontLarge   = LG.newFont("fonts/NotoSans-SemiBold.ttf", 16)
+
+local imageHeart = LG.newImage("gfx/heart.png")
+local imageWhale = LG.newImage("gfx/whale.png")
 
 local SPACING           = 8
 local LABEL_EXTRA_WIDTH = 5
-
--- r, g, b = Color"rrggbb"
-function _G.Color(hexStr)
-	return tonumber(hexStr:sub(1, 2), 16) / 255
-	     , tonumber(hexStr:sub(3, 4), 16) / 255
-	     , tonumber(hexStr:sub(5, 6), 16) / 255
-end
 
 -- showTextPrompt( title, label, initialValue, callback )
 -- callback( path|nil )
@@ -348,7 +325,8 @@ local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, 
 	end)
 
 	guiRow:findType"slider":on("mousepressed", function(guiSlider, event, mx,my, mbutton, pressCount)
-		if mbutton ~= 2 then  return  end
+		if not guiSlider:isActive() then  return  end
+		if mbutton ~= 2             then  return  end
 
 		local v              = getSliderValue(guiSlider, min,max, exp)
 		local clipboardValue = tonumber(love.system.getClipboardText())
@@ -423,12 +401,12 @@ gui:defineStyle("button", {font=fontButtons})
 gui:defineStyle("output", {id="output", align="right", font=fontSmall})
 gui:defineStyle("biglabel", {font=fontLarge})
 
-gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(),
+gui:load{"root", width=LG.getWidth(), height=LG.getHeight(),
 	{"vbar", relativeWidth=1, relativeHeight=1, padding=SPACING, canScrollY=true,
 		{"hbar", spacing=SPACING, background="box", padding=SPACING,
 			{"text", text="LÖVE Audio Effects Playground", spacing=2*SPACING, font=fontLarge},
 			{"vbar", spacing=SPACING,
-				{"button", style="button", id="play", text="Play", tooltip="Shortcut: Space", canToggle=true, weight=1}, -- @Cleanup: Move to Source section.
+				{"button", style="button", id="play", text="Play sound!", tooltip="Shortcut: Space", canToggle=true, weight=1}, -- @Cleanup: Move to Source section.
 				{"canvas", id="position", height=2},
 			},
 			{"hbar", spacing=SPACING, hidden=1==1,
@@ -436,10 +414,10 @@ gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(
 				{"slider", id="masterVolume", min=0, max=1, value=DEFAULT_MASTER_VOLUME, width=100},
 			},
 			{"hbar", spacing=SPACING,
-				{"text", text="Clipboard:"},
-				{"button", style="button", id="copyEffects", text="Effects", canToggle=true, toggled=true},
-				{"button", style="button", id="copyFilters", text="Filters", canToggle=true, toggled=true},
-				{"button", style="button", id="copyToClipboard", text="Export!"},
+				{"text", text="Export:"},
+				{"button", style="button", id="copyToClipboard", text="To clipboard"},
+				{"button", style="button", id="copyEffects", text="Include effects", canToggle=true, toggled=true},
+				{"button", style="button", id="copyFilters", text="Include filters", canToggle=true, toggled=true},
 			},
 		},
 		{"hbar", id="columns", spacing=SPACING, homogeneous=true,
@@ -460,9 +438,9 @@ gui:find"play":on("toggle", function(guiButton)
 end)
 
 gui:find"position":on("draw", function(guiCanvas, event, cw,ch)
-	love.graphics.clear(Color"b1e3fa")
-	love.graphics.setColor(Color"1b4d68")
-	love.graphics.rectangle("fill", 0,0, 2+(cw-2)*theSource:tell()/theSource:getDuration(),ch)
+	LG.clear(Color"b1e3fa")
+	LG.setColor(Color"1b4d68")
+	LG.rectangle("fill", 0,0, 2+(cw-2)*theSource:tell()/theSource:getDuration(),ch)
 end)
 
 gui:find"masterVolume":on("valuechange", function(guiSlider)
@@ -668,6 +646,23 @@ end
 --
 -- LÖVE callbacks.
 --
+local whale = {
+	x        = 100.0,
+	y        = 0.0,
+	velocity = 3.0,
+	angle    = 0.0,
+
+	velocityChangeTime = 0.00,
+	angleChangeTime    = 0.00,
+
+	targetVelocity = 3.0,
+	targetAngle    = 0.0,
+}
+
+local hearts = {}
+
+local time = 0.00
+
 function love.keypressed(key, scancode, isRepeat)
 	if gui:keypressed(key, scancode, isRepeat) then
 		-- void
@@ -687,7 +682,27 @@ function love.textinput(text)
 	gui:textinput(text)
 end
 
+local function spawnHeart()
+	table.insert(hearts, {
+		spawnTime      = time,
+		x              = whale.x + randomf(-30, -10),
+		y              = whale.y + randomf(-40, -35),
+		angle          = TAU*2.75/4 + .15*TAU*randomf(-1, 1),
+		wiggleInterval = randomf(4.00, 6.00),
+	})
+end
+
 function love.mousepressed(mx, my, mbutton, isTouch, pressCount)
+	gui.canScrollMeansSolid = false -- @Hack
+	if
+		mbutton == 1
+		and ((mx - whale.x) / imageWhale:getWidth()) ^ 2 + ((my - (LG.getHeight()/2 + whale.y)) / imageWhale:getHeight()) ^ 2 < .5^2
+		and not gui:getElementAt(mx, my)
+	then
+		spawnHeart()
+	end
+	gui.canScrollMeansSolid = true
+
 	gui:mousepressed(mx, my, mbutton, pressCount)
 end
 function love.mousemoved(mx, my, dx, dy, isTouch)
@@ -700,12 +715,69 @@ function love.wheelmoved(dx, dy)
 	gui:wheelmoved(dx, dy)
 end
 
+local autoSpawnHeartTime = randomf(20.00, 30.00)
+
 function love.update(dt)
+	-- dt = dt * 20 -- DEBUG
+	time  = time + dt
+
 	gui:update(dt)
+
+	local reached
+
+	whale.velocity, reached = moveTowards(whale.velocity, whale.targetVelocity, .3*dt)
+	if reached and time >= whale.velocityChangeTime then
+		whale.targetVelocity     = randomf(3, 6)
+		whale.velocityChangeTime = time + randomf(4.00, 8.00)
+	end
+
+	whale.angle, reached = moveTowards(whale.angle, whale.targetAngle, .02*TAU*dt)
+	if reached and time >= whale.angleChangeTime then
+		local targetY         = randomf(-.5, .5) * .7*LG.getHeight()
+		whale.targetAngle     = math.atan2(targetY-whale.y, 100)
+		whale.angleChangeTime = time + randomf(2.00, 8.00)
+	end
+
+	whale.x = whale.x + whale.velocity * math.cos(whale.angle) * dt
+	whale.y = whale.y + whale.velocity * math.sin(whale.angle) * dt
+
+	if whale.x > LG.getWidth() + imageWhale:getWidth()/2 + 10 then
+		whale.x = -(imageWhale:getWidth()/2 + 10)
+	end
+
+	if time >= autoSpawnHeartTime then
+		spawnHeart()
+		autoSpawnHeartTime = time + randomf(40.00, 60.00)
+	end
 end
+
 function love.draw()
-	love.graphics.clear(Color"b1e3fa")
+	LG.clear(Color"b1e3fa")
+
+	LG.push("all")
+		LG.translate(0, LG.getHeight()/2)
+
+		LG.setColor(1, 1, 1)
+		LG.draw(imageWhale, whale.x,whale.y, 0, 1,1, imageWhale:getWidth()/2,imageWhale:getHeight()/2)
+
+		LG.setColor(Color"da5d86")
+
+		for i, heart in ipairsr(hearts) do
+			local dist = 10 * (time - heart.spawnTime)
+			local x    = heart.x + dist*math.cos(heart.angle) + 4*math.cos(time*TAU/heart.wiggleInterval)
+			local y    = heart.y + dist*math.sin(heart.angle)
+
+			if x < -imageHeart:getWidth() or y < -imageHeart:getHeight()-LG.getHeight()/2 then
+				table.remove(hearts, i)
+			else
+				LG.draw(imageHeart, x,y, 0, 1,1, imageHeart:getWidth()/2,imageHeart:getHeight()/2)
+			end
+		end
+	LG.pop()
+
 	gui:draw()
+
+	-- LG.setColor(0, 0, 0) ; LG.print(whale.angle.."\n"..whale.velocity) -- DEBUG
 end
 
 function love.resize(ww, wh)

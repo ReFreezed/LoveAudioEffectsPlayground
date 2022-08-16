@@ -16,7 +16,8 @@ local TAU = 2*math.pi
 
 -- Settings.
 
-local BUTTON_PADDING       = 3
+local BUTTON_PADDING_X     = 4
+local BUTTON_PADDING_Y     = 2
 local BUTTON_IMAGE_SPACING = 3 -- Between text and image.
 local BUTTON_TEXT_SPACING  = 6 -- Between the texts, if there are two.
 
@@ -154,8 +155,8 @@ return {
 				h = math.max(textH, imageH)
 			end
 
-			w = w + 2*BUTTON_PADDING
-			h = h + 2*BUTTON_PADDING
+			w = w + 2*BUTTON_PADDING_X
+			h = h + 2*BUTTON_PADDING_Y
 
 			return w, h
 		end,
@@ -196,7 +197,7 @@ return {
 			if bg == "faded" then
 				local r, g, b = Color"b1e3fa"
 				Gui.setColor(r, g, b, .3)
-				love.graphics.rectangle("fill", 0,0, w,h)
+				LG.rectangle("fill", 0,0, w,h)
 			elseif bg == "box" then
 				Gui.setColor(Color"e0f4fc")
 				Gui.draw9SliceScaled(0,0, w,h, buttonBackground2Image,unpack(buttonBackground2Quads))
@@ -207,7 +208,7 @@ return {
 				Gui.draw9SliceScaled(0,0, w,h, buttonBackground2Image,unpack(buttonBackground2Quads))
 			else
 				Gui.setColor(0, 0, 0)
-				love.graphics.rectangle("fill", 0,0, w,h)
+				LG.rectangle("fill", 0,0, w,h)
 			end
 		end,
 
@@ -217,7 +218,7 @@ return {
 
 			if imageEl:hasImageBackgroundColor() then
 				imageEl:useImageBackgroundColor()
-				love.graphics.rectangle("fill", imageX, imageY, imageW, imageH)
+				LG.rectangle("fill", imageX, imageY, imageW, imageH)
 			end
 
 			imageEl:useImageColor()
@@ -268,7 +269,7 @@ return {
 			if button:hasSprite() and button:getText() == "" and button:getText2() == "" then
 				if button:hasImageBackgroundColor() then
 					button:useImageBackgroundColor(opacity)
-					love.graphics.rectangle("fill", math.floor(midX-imageW/2), math.floor(midY-imageH/2), imageW, imageH)
+					LG.rectangle("fill", math.floor(midX-imageW/2), math.floor(midY-imageH/2), imageW, imageH)
 				end
 
 				button:useImageColor(opacity)
@@ -279,14 +280,14 @@ return {
 				local text1X, text2X
 
 				if align == "left" then
-					text1X      = BUTTON_PADDING
-					text2X      = math.max(w-BUTTON_PADDING-text2W, text1X+text1W+BUTTON_TEXT_SPACING)
+					text1X      = BUTTON_PADDING_X
+					text2X      = math.max(w-BUTTON_PADDING_X-text2W, text1X+text1W+BUTTON_TEXT_SPACING)
 				elseif align == "right" then
-					text1X      = math.max(w-BUTTON_PADDING-text1W, BUTTON_PADDING)
-					text2X      = math.min(BUTTON_PADDING, text1X-BUTTON_TEXT_SPACING-text2W)
+					text1X      = math.max(w-BUTTON_PADDING_X-text1W, BUTTON_PADDING_X)
+					text2X      = math.min(BUTTON_PADDING_X, text1X-BUTTON_TEXT_SPACING-text2W)
 				elseif align == "center" then
 					local textW = text1W+(text2W > 0 and BUTTON_TEXT_SPACING+text2W or 0)
-					text1X      = math.max(midX-math.floor(textW/2), BUTTON_PADDING)
+					text1X      = math.max(midX-math.floor(textW/2), BUTTON_PADDING_X)
 					text2X      = text1X + text1W + BUTTON_TEXT_SPACING
 				end
 
@@ -298,7 +299,7 @@ return {
 
 				local mnemonicX, mnemonicY, mnemonicW = button:getMnemonicOffset()
 				if mnemonicX then
-					love.graphics.rectangle("fill", text1X+mnemonicX, textY+mnemonicY+1, mnemonicW, 1)
+					LG.rectangle("fill", text1X+mnemonicX, textY+mnemonicY+1, mnemonicW, 1)
 				end
 
 			-- Image and text.
@@ -306,14 +307,14 @@ return {
 			else
 				if button:hasImageBackgroundColor() then
 					button:useImageBackgroundColor(opacity)
-					love.graphics.rectangle("fill", BUTTON_PADDING, math.floor(midY-imageH/2), imageW, imageH)
+					LG.rectangle("fill", BUTTON_PADDING_X, math.floor(midY-imageH/2), imageW, imageH)
 				end
 
-				local text1X =     BUTTON_PADDING + imageW + BUTTON_IMAGE_SPACING
-				local text2X = w - BUTTON_PADDING - text2W
+				local text1X =     BUTTON_PADDING_X + imageW + BUTTON_IMAGE_SPACING
+				local text2X = w - BUTTON_PADDING_X - text2W
 
 				button:useImageColor(opacity)
-				button:drawImage(BUTTON_PADDING, math.floor(midY-imageH/2))
+				button:drawImage(BUTTON_PADDING_X, math.floor(midY-imageH/2))
 
 				button:useFont()
 				Gui.setColor(1, 1, 1, .6*opacity)
@@ -323,7 +324,7 @@ return {
 
 				local mnemonicX, mnemonicY, mnemonicW = button:getMnemonicOffset()
 				if mnemonicX then
-					love.graphics.rectangle("fill", text1X+mnemonicX, textY+mnemonicY+1, mnemonicW, 1)
+					LG.rectangle("fill", text1X+mnemonicX, textY+mnemonicY+1, mnemonicW, 1)
 				end
 			end
 		end,
@@ -336,14 +337,14 @@ return {
 			if input:isKeyboardFocus() then
 				local bgR, bgG, bgB = Color"25b786"
 				Gui.setColor(bgR, bgG, bgB, .2)
-				love.graphics.rectangle("fill", 1, 1, w-2, h-2)
+				LG.rectangle("fill", 1, 1, w-2, h-2)
 			end
 
 			-- Border.
 			local isHighlighted = (input:isActive() and input:isHovered()) or input:isKeyboardFocus()
 			local a             = (isHighlighted and 1 or .4) * opacity
 			Gui.setColor(r, g, b, a)
-			love.graphics.rectangle("line", 1+.5, 1+.5, w-2-1, h-2-1)
+			LG.rectangle("line", 1+.5, 1+.5, w-2-1, h-2-1)
 
 			input:setScissor(2, 2, w-2*2, h-2*2) -- Make sure the contents does not render outside the element.
 
@@ -367,7 +368,7 @@ return {
 			if input:isKeyboardFocus() then
 				local cursorOpacity = ((math.cos(5*input:getBlinkPhase()) + 1) / 2) ^ .5
 				Gui.setColor(r, g, b, cursorOpacity)
-				love.graphics.rectangle("fill", valueX+curOffsetX-1, valueY+curOffsetY, 1, fontH)
+				LG.rectangle("fill", valueX+curOffsetX-1, valueY+curOffsetY, 1, fontH)
 			end
 		end,
 
@@ -380,9 +381,9 @@ return {
 				local a             = (isHighlighted and 1 or .7) * opacity
 
 				Gui.setColor(r, g, b, .6*a)
-				love.graphics.rectangle("fill", 0, 0,  2, h)
-				love.graphics.rectangle("fill", w, 0, -2, h)
-				love.graphics.draw(continuousSliderImage, 0,0, 0, w/continuousSliderImage:getWidth(),h/continuousSliderImage:getHeight())
+				LG.rectangle("fill", 0, 0,  2, h)
+				LG.rectangle("fill", w, 0, -2, h)
+				LG.draw(continuousSliderImage, 0,0, 0, w/continuousSliderImage:getWidth(),h/continuousSliderImage:getHeight())
 
 				Gui.setColor(r, g, b, opacity)
 				slider:useFont()
@@ -390,9 +391,9 @@ return {
 
 			else
 				if slider:isVertical() then
-					love.graphics.push()
-					love.graphics.translate(w, 0)
-					love.graphics.rotate(TAU/4)
+					LG.push()
+					LG.translate(w, 0)
+					LG.rotate(TAU/4)
 					w, h = h, w
 				end
 
@@ -408,22 +409,22 @@ return {
 
 				-- Rail.
 				Gui.setColor(r, g, b, .7*a)
-				love.graphics.rectangle("fill", railX1, railY-1, railW, 2)
+				LG.rectangle("fill", railX1, railY-1, railW, 2)
 
 				-- Helper markers.
 				Gui.setColor(r, g, b, .7*a)
-				love.graphics.rectangle("fill",            railX1                , railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
-				love.graphics.rectangle("fill", math.floor(railX1+0.25*(railW-1)), railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
-				love.graphics.rectangle("fill", math.floor(railX1+0.50*(railW-1)), railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
-				love.graphics.rectangle("fill", math.floor(railX1+0.75*(railW-1)), railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
-				love.graphics.rectangle("fill",            railX2-1              , railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
+				LG.rectangle("fill",            railX1                , railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
+				LG.rectangle("fill", math.floor(railX1+0.25*(railW-1)), railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
+				LG.rectangle("fill", math.floor(railX1+0.50*(railW-1)), railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
+				LG.rectangle("fill", math.floor(railX1+0.75*(railW-1)), railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
+				LG.rectangle("fill",            railX2-1              , railY-.5*SLIDER_MARKER_WIDTH, 1, SLIDER_MARKER_WIDTH)
 
 				-- Value handle.
 				Gui.setColor(r, g, b, a)
-				love.graphics.rectangle("fill", math.floor(handleX-.5*SLIDER_HANDLE_THICKNESS), railY-.5*SLIDER_WIDTH, SLIDER_HANDLE_THICKNESS, SLIDER_WIDTH)
+				LG.rectangle("fill", math.floor(handleX-.5*SLIDER_HANDLE_THICKNESS), railY-.5*SLIDER_WIDTH, SLIDER_HANDLE_THICKNESS, SLIDER_WIDTH)
 
 				if slider:isVertical() then
-					love.graphics.pop()
+					LG.pop()
 				end
 			end
 		end,
@@ -438,7 +439,7 @@ return {
 			-- Background.
 			local a = (isBarHovered or isScrolling) and .2 or 0
 			Gui.setColor(r, g, b, a)
-			love.graphics.rectangle("fill", 0, 0, w, h)
+			LG.rectangle("fill", 0, 0, w, h)
 
 			-- Scrollbar handle.
 			local handleX, handleY, handleW, handleH
@@ -474,10 +475,10 @@ return {
 
 			-- Background.
 			Gui.setColor(1, 1, 1, opacity)
-			love.graphics.rectangle("fill", 1, 1, w-2, h-2)
-			love.graphics.setLineWidth(1)
+			LG.rectangle("fill", 1, 1, w-2, h-2)
+			LG.setLineWidth(1)
 			Gui.setColor(0, 0, 0)
-			love.graphics.rectangle("line", .5, .5, w-1, h-1)
+			LG.rectangle("line", .5, .5, w-1, h-1)
 
 			-- Text.
 			local x = TOOLTIP_PADDING

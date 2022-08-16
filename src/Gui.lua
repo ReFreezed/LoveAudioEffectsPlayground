@@ -3014,6 +3014,8 @@ local Gui = newClass("Gui", {
 	_heres = nil,
 
 	debug = false,
+
+	canScrollMeansSolid = true, -- @Edit
 })
 
 local Cs = {} -- gui element Classes.
@@ -8738,7 +8740,7 @@ Cs.container.indexOf = indexOf
 
 -- REPLACE  bool = container:isSolid( )
 function Cs.container.isSolid(container)
-	return container._solid or container._background ~= "" or container:canScrollAny()
+	return container._solid or container._background ~= "" or (container._gui.canScrollMeansSolid and container:canScrollAny()) -- @Edit
 end
 
 
