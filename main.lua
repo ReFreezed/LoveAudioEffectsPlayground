@@ -175,20 +175,55 @@ local function updateActiveEffects()
 	end
 
 	-- Filter.
-	if gui:find("filterParam_active"):isToggled() then
-		local filterType = gui:find("filterParam_type"):findToggled().data.value
+	if gui:find"filterParam_active":isToggled() then
+		local filterType = gui:find"filterParam_type":findToggled().data.value
 		theSource:setFilter{
-			volume   = gui:find("filterParam_volume"):getValue()^2,
+			volume   = gui:find"filterParam_volume":getValue()^2,
 			type     = filterType,
-			lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find("filterParam_lowgain" ):getValue()^2 or nil,
-			highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find("filterParam_highgain"):getValue()^2 or nil,
+			lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find"filterParam_lowgain" :getValue()^2 or nil,
+			highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find"filterParam_highgain":getValue()^2 or nil,
 		}
 	else
 		theSource:setFilter()
 	end
 end
 
-local function loadSound(path)
+local currentSoundPath = ""
+
+-- success, error = loadSound( internal, path )
+local function loadSound(internal, path)
+	if path == currentSoundPath then  return true  end
+
+	print("Loading sound: "..path)
+	local pathOrFileData
+
+	if internal then
+		pathOrFileData = path
+	else
+		local file, err = io.open(path, "rb") -- @Incomplete: UTF-8!
+		if not file then
+			err = err:gsub("%.?$", ".", 1)
+			io.stderr:write("Error: ", err)
+			if love.system.getOS() == "Windows" and path:find"[\128-\255]" then
+				err = "Paths with non-ASCII characters are not supported."
+				io.stderr:write(" (", err, ")")
+			end
+			io.stderr:write("\n")
+			return false, err
+		end
+		pathOrFileData = love.filesystem.newFileData(file:read"*a", path)
+		file:close()
+	end
+
+	local ok, source = pcall(love.audio.newSource, pathOrFileData, "static")
+	if type(pathOrFileData) == "userdata" then
+		pathOrFileData:release()
+	end
+	if not ok then
+		io.stderr:write("Error: "..source, "\n")
+		return false, source
+	end
+
 	local isPlaying = false
 	local vol       = 1
 
@@ -199,14 +234,17 @@ local function loadSound(path)
 		theSource:release()
 	end
 
-	theSource = love.audio.newSource(path, "static")
+	theSource = source
 	theSource:setVolume(vol)
 	theSource:setLooping(true)
 
+	currentSoundPath = path
+
 	if isPlaying then  theSource:play()  end
+	return true
 end
 
-loadSound("sounds/guitar.wav")
+loadSound(true, "sounds/guitar.wav")
 
 --
 -- GUI.
@@ -294,6 +332,36 @@ local function guiAddRadioParam(guiParent, labelWidth, id, label, values--[[{ {v
 	return guiRow
 end
 
+-- showTextPrompt( title, label, initialValue, callback )
+-- callback( path|nil )
+local function showTextPrompt(title, label, v, cb)
+	local guiPrompt = gui:getRoot():insert{"container", relativeWidth=1, relativeHeight=1, closable=true, captureGuiInput=true, confineNavigation=true,
+		{"vbar", background="whatever", width=300, padding=SPACING, anchorX=.5, anchorY=.5, originX=.5, originY=.5,
+			{"text", text=title, spacing=SPACING},
+			{"hbar",
+				{"text", text=label, spacing=2},
+				{"input", value=v, weight=1},
+			},
+		},
+	}
+
+	local guiInput = guiPrompt:findType"input"
+	local vOnClose = nil
+
+	guiPrompt:on("closed", function(guiPrompt, event)
+		guiPrompt:remove()
+		cb(vOnClose)
+	end)
+
+	guiInput:on("submit", function(guiInput, event)
+		vOnClose = guiInput:getValue()
+		guiPrompt:close()
+	end)
+
+	guiInput:focus()
+	guiInput:getField():selectAll()
+end
+
 gui = require"Gui"()
 gui:setFont(fontNormal)
 
@@ -331,11 +399,11 @@ gui:load{"root", width=love.graphics.getWidth(), height=love.graphics.getHeight(
 	},
 }
 
-gui:find"play":on("toggle", function(guiSlider)
-	if theSource:isPlaying() then
-		theSource:stop()
-	else
+gui:find"play":on("toggle", function(guiButton)
+	if guiButton:isToggled() then
 		theSource:play()
+	else
+		theSource:stop()
 	end
 end)
 
@@ -357,28 +425,62 @@ end)
 do
 	local labelWidth = math.max(
 		fontNormal:getWidth"sound:",
+		fontNormal:getWidth"custom:",
 		fontNormal:getWidth"volume:",
 		fontNormal:getWidth"lowgain:",
 		fontNormal:getWidth"highgain:",
 	0) + LABEL_EXTRA_WIDTH
 
-	local guiSource = gui:find"columns"[1]:insert{"vbar", spacing=SPACING, background="whatever", padding=SPACING}
+	local guiSource = gui:find"columns"[1]:insert{"vbar", id="source", spacing=SPACING, background="whatever", padding=SPACING}
 
 	-- Header.
 	guiSource:insert{"hbar", spacing=SPACING,
 		{"text", align="left", text="Source", font=fontLarge, weight=1},
 		{"button", id="filterParam_active", canToggle=true, text="Filter"},
 	}
-	guiSource:find("filterParam_active"):on("toggle", function(guiButton)
+	guiSource:find"filterParam_active":on("toggle", function(guiButton)
 		guiSource:find"filterParams":setVisible(guiButton:isToggled())
 		updateActiveEffects()
 	end)
 
 	-- Source parameters.
-	guiAddRadioParam(guiSource, labelWidth, "sourceSound", "sound", {{"sounds/fight.ogg","Fight"},{"sounds/guitar.wav","Guitar"},{"sounds/speech.ogg","Speech"}}, "sounds/guitar.wav", function(guiButton)
-		loadSound(guiButton.data.value)
+	guiAddRadioParam(guiSource, labelWidth, "sourceSound", "sound", {{"sounds/fight.ogg","Fight"},{"sounds/guitar.wav","Guitar"},{"sounds/speech.ogg","Speech"},{"","Custom"}}, "sounds/guitar.wav", function(guiButton)
+		if guiButton.data.value == "" then
+			guiSource:find"customSoundPath":trigger("submit")
+		else
+			loadSound(true, guiButton.data.value)
+			guiSource:find"customSoundError":hide()
+			updateActiveEffects()
+		end
+	end)
+
+	guiSource:insert{"hbar",
+		{"text", width=labelWidth, align="left", text="custom:"},
+		{"input", id="customSoundPath", placeholder="C:/path/to/sound.wav", weight=1, tooltip="You can drag files into the window too."},
+	}
+	guiSource:find"customSoundPath":on("submit", function(guiInput)
+		local path = guiInput:getValue()
+		if path == "" then  return  end
+
+		local ok, err = loadSound(false, path)
+		if not ok then
+			local textW = guiInput:getLayoutWidth() - 4
+			guiSource:find"customSoundError":show()
+			guiSource:find"customSoundError":find"_text":setText("Error: "..err)
+			guiSource:find"customSoundError":find"_text"._textWrapLimit = textW -- @Hack: No fitting library method!
+			gui:scheduleLayoutUpdate()
+			return
+		end
+
+		guiSource:find"sourceSound":setToggledChild(#guiSource:find"sourceSound")
+		guiSource:find"customSoundError":hide()
 		updateActiveEffects()
 	end)
+
+	guiSource:insert{"hbar", id="customSoundError", hidden=true,
+		{"text", width=labelWidth},
+		{"text", id="_text", wrapText=true, align="left", textColor={1,.5,.5}},
+	}
 
 	guiAddSliderParam(guiSource, labelWidth, fontSmall:getWidth"1.00", "sourceVolume", "volume", 0,1, 1, 2, "%.2f", function(guiSlider)
 		theSource:setVolume(guiSlider:getValue()^2)
@@ -392,8 +494,8 @@ do
 	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_volume", "volume", 0,1, 1, 2, "%.2f", updateActiveEffects)
 
 	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "type", {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}, "lowpass", function(guiButton)
-		guiFilterRows:find("filterParam_lowgain" ):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
-		guiFilterRows:find("filterParam_highgain"):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
+		guiFilterRows:find"filterParam_lowgain" :setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
+		guiFilterRows:find"filterParam_highgain":setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
 		updateActiveEffects()
 	end)
 
@@ -554,4 +656,10 @@ end
 
 function love.resize(ww, wh)
 	gui:getRoot():setDimensions(ww, wh)
+end
+
+function love.filedropped(file)
+	local guiInput = gui:find"source":find"customSoundPath"
+	guiInput:setValue(file:getFilename())
+	guiInput:trigger("submit")
 end
