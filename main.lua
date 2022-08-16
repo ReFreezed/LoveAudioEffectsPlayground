@@ -432,9 +432,9 @@ for _, effectInfo in ipairs(EFFECTS) do
 	-- Header.
 	guiEffect:insert{"hbar", spacing=SPACING,
 		{"text", align="left", text=effectInfo.title, font=fontLarge, weight=1},
-		{"button", id="presets_"    ..effectInfo.type           , text="Presets", active=(PRESETS[effectInfo.type][1] ~= nil)},
-		{"button", id="filterParam_"..effectInfo.type.."_active", text="Filter" , canToggle=true},
-		{"button", id="param_"      ..effectInfo.type.."_active", text="Active" , canToggle=true},
+		{"button", id="presets_"    ..effectInfo.type           , text="Presets"},
+		{"button", id="filterParam_"..effectInfo.type.."_active", text="Filter", canToggle=true},
+		{"button", id="param_"      ..effectInfo.type.."_active", text="Active", canToggle=true},
 	}
 
 	guiEffect:find("param_"..effectInfo.type.."_active"):on("toggle", function(guiButton)
@@ -449,21 +449,20 @@ for _, effectInfo in ipairs(EFFECTS) do
 
 	guiEffect:find("presets_"..effectInfo.type):on("press", function(guiButton)
 		local presets = PRESETS[effectInfo.type]
-		if not presets[1] then  return  end
-
-		local items = {}
+		local items   = {"Defaults"}
 
 		for _, preset in ipairs(presets) do
 			table.insert(items, preset.title)
 		end
 
 		guiButton:showMenu(items, function(choice)
-			local preset = presets[choice]
-			if not preset then  return  end
+			if choice == 0 then  return  end
+
+			local preset = presets[choice-1]
 
 			for _, param in ipairs(effectInfo) do
 				if param.type ~= "constant" then
-					local v = preset.params[param.name]
+					local v = preset and preset.params[param.name]
 					if v == nil then  v = param.default  end
 
 					local paramId = "param_"..effectInfo.type.."_"..param.name
