@@ -188,6 +188,14 @@ local function updateActiveEffects()
 	end
 end
 
+local function formatBytes(n)
+	if     n >= 1024^3 then  return string.format("%.2f GiB"  , n/(1024^3))
+	elseif n >= 1024^2 then  return string.format("%.2f MiB"  , n/(1024^2))
+	elseif n >= 1024   then  return string.format("%.2f KiB"  , n/(1024  ))
+	elseif n ~= 1      then  return string.format("%.0f bytes", n)
+	else                     return                  "1 byte"  end
+end
+
 local currentSoundPath = ""
 
 -- success, error = loadSound( internal, path )
@@ -213,6 +221,7 @@ local function loadSound(internal, path)
 		end
 		pathOrFileData = love.filesystem.newFileData(file:read"*a", path)
 		file:close()
+		print("File size: "..formatBytes(pathOrFileData:getSize()))
 	end
 
 	local ok, source = pcall(love.audio.newSource, pathOrFileData, "static")
@@ -256,6 +265,44 @@ local fontLarge  = love.graphics.newFont(16)
 local SPACING           = 8
 local LABEL_EXTRA_WIDTH = 5
 
+-- showTextPrompt( title, label, initialValue, callback )
+-- callback( path|nil )
+local function showTextPrompt(title, label, v, cb)
+	local guiPrompt = gui:getRoot():insert{"container", relativeWidth=1, relativeHeight=1, closable=true, captureGuiInput=true, confineNavigation=true,
+		{"vbar", background="whatever", width=300, padding=SPACING, anchorX=.5, anchorY=.5, originX=.5, originY=.5,
+			{"text", text=title, spacing=SPACING},
+			{"hbar",
+				{"text", text=label, spacing=2},
+				{"input", value=v, weight=1},
+			},
+			{"hbar", homogeneous=true,
+				{"button", weight=1, id="ok"   , text="OK"    },
+				{"button", weight=1, close=true, text="Cancel"},
+			},
+		},
+	}
+
+	local guiInput = guiPrompt:findType"input"
+	local vOnClose = nil
+
+	guiPrompt:on("closed", function(guiPrompt, event)
+		guiPrompt:remove()
+		cb(vOnClose)
+	end)
+
+	guiInput:on("submit", function(guiInput, event)
+		vOnClose = guiInput:getValue()
+		guiPrompt:close()
+	end)
+	guiPrompt:find"ok":on("press", function(guiButton, event)
+		vOnClose = guiInput:getValue()
+		guiPrompt:close()
+	end)
+
+	guiInput:focus()
+	guiInput:getField():selectAll()
+end
+
 local function guiAddConstantParam(guiParent, labelWidth, label, v)
 	local guiRow = guiParent:insert{"hbar",
 		{"text", width=labelWidth, align="left", text=label..":"},
@@ -276,11 +323,11 @@ local function guiAddToggleParam(guiParent, labelWidth, id, label, toggled, onTo
 	return guiRow
 end
 
-local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, min,max, v, exp, vFormat, onChange)
+local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, min,max, defaultValue, exp, vFormat, onChange)
 	local guiRow = guiParent:insert{"hbar",
 		{"text", width=labelWidth, align="left", text=label..":"},
-		{"slider", id=id, min=0, max=1, value=normalize(v, min,max, exp), weight=1},
-		{"text", style="output", width=outputWidth, text=string.format(vFormat, v)},
+		{"slider", id=id, min=0, max=1, value=normalize(defaultValue, min,max, exp), weight=1},
+		{"text", style="output", width=outputWidth, text=string.format(vFormat, defaultValue)},
 	}
 
 	guiRow:findType"slider":on("valuechange", function(guiSlider)
@@ -291,28 +338,49 @@ local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, 
 	guiRow:findType"slider":on("mousepressed", function(guiSlider, event, mx,my, mbutton, pressCount)
 		if mbutton ~= 2 then  return  end
 
-		local clipboardN = tonumber(love.system.getClipboardText())
+		local v              = getSliderValue(guiSlider, min,max, exp)
+		local clipboardValue = tonumber(love.system.getClipboardText())
+
 		local items = {
-			":: "..label.." ::",
-			"Copy ("..getSliderValue(guiSlider, min,max, exp)..")",
-			clipboardN and "Paste ("..clipboardN..")" or "Paste",
-			"Reset ("..v..")",
+			"Enter value...",
+			"Copy ("..v..")",
+			clipboardValue and "Paste ("..clipboardValue..")" or "Paste",
+			"Reset ("..defaultValue..")",
 		}
 
-		guiSlider:showMenu(items, mx+2,my+2, function(choice)
-			if choice == 2 then
-				love.system.setClipboardText(tostring(getSliderValue(guiSlider, min,max, exp)))
+		local guiMenu = guiSlider:showMenu(items, mx,my, function(choice)
+			if choice == 1 then
+				showTextPrompt("Enter value", label..":", tostring(v), function(vStr)
+					if vStr and vStr:find"%%$" then
+						v = tonumber(vStr:sub(1, -2))
+						if not v then  return  end
+						guiSlider:setValue(v/100)
+						guiSlider:trigger("valuechange")
+					else
+						v = tonumber(vStr)
+						if not v then  return  end
+						setSliderValue(guiSlider, min,max, exp, v)
+						guiSlider:trigger("valuechange")
+					end
+				end)
+
+			elseif choice == 2 then
+				love.system.setClipboardText(tostring(v))
 
 			elseif choice == 3 then
-				if not clipboardN then  return  end
-				setSliderValue(guiSlider, min,max, exp, clipboardN)
+				if not clipboardValue then  return  end
+				setSliderValue(guiSlider, min,max, exp, clipboardValue)
 				guiSlider:trigger("valuechange")
 
 			elseif choice == 4 then
-				setSliderValue(guiSlider, min,max, exp, v)
+				setSliderValue(guiSlider, min,max, exp, defaultValue)
 				guiSlider:trigger("valuechange")
 			end
 		end)
+
+		guiMenu[1]:insert({"container", padding=2,
+			{"text", text=label, align="left"},
+		}, 1)
 	end)
 
 	return guiRow
@@ -332,41 +400,11 @@ local function guiAddRadioParam(guiParent, labelWidth, id, label, values--[[{ {v
 	return guiRow
 end
 
--- showTextPrompt( title, label, initialValue, callback )
--- callback( path|nil )
-local function showTextPrompt(title, label, v, cb)
-	local guiPrompt = gui:getRoot():insert{"container", relativeWidth=1, relativeHeight=1, closable=true, captureGuiInput=true, confineNavigation=true,
-		{"vbar", background="whatever", width=300, padding=SPACING, anchorX=.5, anchorY=.5, originX=.5, originY=.5,
-			{"text", text=title, spacing=SPACING},
-			{"hbar",
-				{"text", text=label, spacing=2},
-				{"input", value=v, weight=1},
-			},
-		},
-	}
-
-	local guiInput = guiPrompt:findType"input"
-	local vOnClose = nil
-
-	guiPrompt:on("closed", function(guiPrompt, event)
-		guiPrompt:remove()
-		cb(vOnClose)
-	end)
-
-	guiInput:on("submit", function(guiInput, event)
-		vOnClose = guiInput:getValue()
-		guiPrompt:close()
-	end)
-
-	guiInput:focus()
-	guiInput:getField():selectAll()
-end
-
 gui = require"Gui"()
 gui:setFont(fontNormal)
 
 gui:defineStyle("_MENU", {
-	{background="whatever"},
+	{background="whatever", padding=2},
 })
 gui:defineStyle("output", {id="output", align="right", font=fontSmall})
 gui:defineStyle("biglabel", {font=fontLarge})
@@ -456,7 +494,7 @@ do
 
 	guiSource:insert{"hbar",
 		{"text", width=labelWidth, align="left", text="custom:"},
-		{"input", id="customSoundPath", placeholder="C:/path/to/sound.wav", weight=1, tooltip="You can drag files into the window too."},
+		{"input", id="customSoundPath", placeholder="C:/path/to/sound.wav", weight=1, tooltip="You can drag files into the window too!"},
 	}
 	guiSource:find"customSoundPath":on("submit", function(guiInput)
 		local path = guiInput:getValue()
@@ -570,9 +608,9 @@ for _, effectInfo in ipairs(EFFECTS) do
 					local paramId = "param_"..effectInfo.type.."_"..param.name
 					local guiEl   = gui:find(paramId)
 
-					if     param.type == "boolean"  then  guiEl:setToggled(v)
-					elseif param.type == "number"   then  setSliderValue(guiEl, param.min,param.max, param.exp, v) ; guiEl:trigger("valuechange")
-					elseif param.type == "enum"     then  guiEl:setToggledChild(guiEl:getChildWithData("value", v):getIndex())
+					if     param.type == "boolean" then  guiEl:setToggled(v)
+					elseif param.type == "number"  then  setSliderValue(guiEl, param.min,param.max, param.exp, v) ; guiEl:trigger("valuechange")
+					elseif param.type == "enum"    then  guiEl:setToggledChild(guiEl:getChildWithData("value", v):getIndex())
 					else
 						error(param.type)
 					end
