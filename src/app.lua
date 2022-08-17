@@ -9,6 +9,9 @@
 --=
 --============================================================]]
 
+
+
+-- Setup.
 if not DEV then
 	love.window.maximize()
 end
@@ -16,117 +19,134 @@ end
 io.stdout:setvbuf("no")
 io.stderr:setvbuf("no")
 
-_G.TAU = 2*math.pi
-_G.LG  = love.graphics
+love.keyboard.setKeyRepeat(true)
+
+-- Constants.
+_G.TAU                  = 2*math.pi
+_G.APP_STATE_SAVE_DELAY = 5.00
+
+-- Modules.
+_G.LG         = love.graphics
+local EFFECTS = require"effects"
+local PRESETS = require"presets"
 
 require"functions"
 
-love.keyboard.setKeyRepeat(true)
-
-local theSource = nil
+-- Variables.
+local theSource          = nil
+local currentSoundPath   = ""
+local saveAppStateQueued = false
+local saveAppStateTime   = 0.00
 local gui
 
---
--- Audio.
---
-local EFFECTS = {
-	{type="chorus", column=1, title="Chorus",
-		{name="type"            , type="constant",                        value="chorus"},
-		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="waveform"        , type="enum"    ,                        default="triangle", values={{"sine","sine"},{"triangle","triangle"}}},
-		{name="phase"           , type="number"  , min=-180  , max=180  , default=90   , exp=1, format="%.0fdeg"},
-		{name="rate"            , type="number"  , min=0     , max=10   , default=1.1  , exp=2, format="%.1fHz"},
-		{name="depth"           , type="number"  , min=0     , max=1    , default=0.1  , exp=2, format="%.2f"},
-		{name="feedback"        , type="number"  , min=-1    , max=1    , default=0.25 , exp=2, format="%.2f"},
-		{name="delay"           , type="number"  , min=0.0005, max=0.016, default=0.016, exp=2, format="%.3fsec"}, -- Min is documented to be 0 but isn't actually.
-	},
-	{type="flanger", column=1, title="Flanger",
-		{name="type"            , type="constant",                        value="flanger"},
-		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="waveform"        , type="enum"    ,                        default="triangle", values={{"sine","sine"},{"triangle","triangle"}}},
-		{name="phase"           , type="number"  , min=-180  , max=180  , default=0    , exp=1, format="%.0fdeg"},
-		{name="rate"            , type="number"  , min=0     , max=10   , default=0.27 , exp=2, format="%.2fHz"},
-		{name="depth"           , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="feedback"        , type="number"  , min=-1    , max=1    , default=-.5  , exp=2, format="%.2f"},
-		{name="delay"           , type="number"  , min=0.0004, max=0.004, default=0.002, exp=2, format="%.4fsec"}, -- Min is documented to be 0 but isn't actually.
-	},
-	{type="equalizer", column=2, title="Equalizer",
-		{name="type"            , type="constant",                        value="equalizer"},
-		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="lowgain"         , type="number"  , min=0.126 , max=7.943, default=1    , exp=2, format="%.3f"},
-		{name="lowcut"          , type="number"  , min=50    , max=800  , default=200  , exp=2, format="%.0fHz"},
-		{name="lowmidgain"      , type="number"  , min=0.126 , max=7.943, default=1    , exp=2, format="%.3f"},
-		{name="lowmidfrequency" , type="number"  , min=200   , max=3000 , default=500  , exp=2, format="%.0fHz"},
-		{name="lowmidbandwidth" , type="number"  , min=0.01  , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="highmidgain"     , type="number"  , min=0.126 , max=7.943, default=1    , exp=2, format="%.3f"},
-		{name="highmidfrequency", type="number"  , min=1000  , max=8000 , default=3000 , exp=2, format="%.0fHz"},
-		{name="highmidbandwidth", type="number"  , min=0.01  , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="highgain"        , type="number"  , min=0.126 , max=7.943, default=1    , exp=2, format="%.3f"},
-		{name="highcut"         , type="number"  , min=4000  , max=16000, default=6000 , exp=2, format="%.0fHz"},
-	},
-	{type="compressor", column=2, title="Compressor",
-		{name="type"            , type="constant",                        value="compressor"},
-		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="enable"          , type="boolean" ,                        default=true },
-	},
-	{type="reverb", column=3, title="Reverb",
-		{name="type"            , type="constant",                        value="reverb"},
-		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="density"         , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="diffusion"       , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="gain"            , type="number"  , min=0     , max=1    , default=0.32 , exp=2, format="%.2f"},
-		{name="highgain"        , type="number"  , min=0     , max=1    , default=0.89 , exp=2, format="%.2f"},
-		{name="decaytime"       , type="number"  , min=0.1   , max=20   , default=1.49 , exp=2, format="%.1fsec"},
-		{name="decayhighratio"  , type="number"  , min=0.1   , max=2    , default=0.83 , exp=1, format="%.2f"},
-		{name="earlygain"       , type="number"  , min=0     , max=3.16 , default=0.05 , exp=2, format="%.2f"},
-		{name="earlydelay"      , type="number"  , min=0     , max=0.3  , default=0.05 , exp=2, format="%.2fsec"},
-		{name="lategain"        , type="number"  , min=0     , max=10   , default=1.26 , exp=2, format="%.2f"},
-		{name="latedelay"       , type="number"  , min=0     , max=0.1  , default=0.011, exp=2, format="%.3fsec"},
-		{name="airabsorption"   , type="number"  , min=0.892 , max=1    , default=0.994, exp=1, format="%.3f"},
-		{name="roomrolloff"     , type="number"  , min=0     , max=10   , default=0    , exp=1, format="%.1f"},
-		{name="highlimit"       , type="boolean" ,                        default=true },
-	},
-	{type="echo", column=3, title="Echo",
-		{name="type"            , type="constant",                        value="echo"},
-		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="delay"           , type="number"  , min=0     , max=0.207, default=0.1  , exp=2, format="%.3fsec"},
-		{name="tapdelay"        , type="number"  , min=0     , max=0.404, default=0.1  , exp=2, format="%.3fsec"},
-		{name="damping"         , type="number"  , min=0     , max=0.99 , default=0.5  , exp=1, format="%.2f"},
-		{name="feedback"        , type="number"  , min=0     , max=1    , default=0.5  , exp=2, format="%.2f"},
-		{name="spread"          , type="number"  , min=-1    , max=1    , default=-1   , exp=2, format="%.2f"},
-	},
-	{type="ringmodulator", column=4, title="Ring modulator",
-		{name="type"            , type="constant",                        value="ringmodulator"},
-		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="frequency"       , type="number"  , min=0     , max=8000 , default=440  , exp=2, format="%.0fHz"},
-		{name="highcut"         , type="number"  , min=0     , max=24000, default=800  , exp=2, format="%.0fHz"},
-		{name="waveform"        , type="enum"    ,                        default="sine", values={{"sine","sine"},{"sawtooth","sawtooth"},{"square","square"}}},
-	},
-	{type="distortion", column=4, title="Distortion",
-		{name="type"            , type="constant",                        value="distortion"},
-		{name="volume"          , type="number"  , min=0     , max=1    , default=1    , exp=2, format="%.2f"},
-		{name="edge"            , type="number"  , min=0     , max=1    , default=0.2  , exp=2, format="%.2f"},
-		{name="gain"            , type="number"  , min=0.01  , max=1    , default=0.2  , exp=2, format="%.2f"},
-		{name="lowcut"          , type="number"  , min=80    , max=24000, default=8000 , exp=2, format="%.0fHz"},
-		{name="center"          , type="number"  , min=80    , max=24000, default=3600 , exp=2, format="%.0fHz"},
-		{name="bandwidth"       , type="number"  , min=80    , max=24000, default=3600 , exp=2, format="%.0fHz"},
-	},
-}
 
-local PRESETS = require"presets"
+
+-- Misc.
+--==============================================================
+
+
+
+local function getSliderValue(guiSlider, min,max, exp)
+	return denormalize(guiSlider:getValue(), min,max, exp)
+end
+
+local function setSliderValue(guiSlider, min,max, exp, v)
+	guiSlider:setValue(normalize(v, min,max, exp))
+end
+
+
+
+local function loadAppState()
+	local appState = {}
+
+	local contents = love.filesystem.read("state")
+	if not contents then  return appState  end
+
+	for line in contents:gmatch"[^\n]+" do
+		local k, vStr = line:match"^([%a_][%w_]*)%s*=%s*(%S.*)$"
+		if k then
+			appState[k] = deserialize(vStr)
+		else
+			io.stderr:write("state: Error: Bad line format: ", line, "\n")
+		end
+	end
+
+	return appState
+end
+
+-- value       = readAppState( appState, key, fallbackValue [, validValues=any ] )
+-- validValues = { {value1}, ... }
+local function readAppState(appState, k, fallback, validValues)
+	if type(appState[k]) == type(fallback) and not (validValues and not itemWith1(validValues, 1, appState[k])) then
+		return appState[k]
+	else
+		return fallback
+	end
+end
+
+local function saveAppStateNow()
+	print("Saving app state.") -- DEBUG
+	saveAppStateQueued = false
+	local buffer       = {}
+
+	-- App.
+	-- @Incomplete: Save window state.
+	writeKvPair(buffer, "copyToClipboard_effects", gui:find"copyToClipboard_effects":isToggled())
+	writeKvPair(buffer, "copyToClipboard_filters", gui:find"copyToClipboard_filters":isToggled())
+
+	-- Source.
+	writeKvPair(buffer, "sourceSound"          , gui:find"sourceSound":findToggled().data.value)
+	writeKvPair(buffer, "sourceCustomSoundPath", gui:find"sourceCustomSoundPath":getValue())
+	writeKvPair(buffer, "sourceVolume"         , theSource:getVolume())
+	writeKvPair(buffer, "filterParam_active"   , gui:find"filterParam_active"  :isToggled())
+	writeKvPair(buffer, "filterParam_volume"   , gui:find"filterParam_volume"  :getValue()^2)
+	writeKvPair(buffer, "filterParam_type"     , gui:find"filterParam_type"    :findToggled().data.value)
+	writeKvPair(buffer, "filterParam_lowgain"  , gui:find"filterParam_lowgain" :getValue()^2)
+	writeKvPair(buffer, "filterParam_highgain" , gui:find"filterParam_highgain":getValue()^2)
+
+	-- Effects.
+	for _, effectInfo in ipairs(EFFECTS) do
+		writeKvPair(buffer, "param_"..effectInfo.type.."_active", gui:find("param_"..effectInfo.type.."_active"):isToggled())
+
+		for _, param in ipairs(effectInfo) do
+			local paramId = "param_"..effectInfo.type.."_"..param.name
+
+			if     param.type == "constant" then  writeKvPair(buffer, paramId, param.value)
+			elseif param.type == "boolean"  then  writeKvPair(buffer, paramId, gui:find(paramId):isToggled())
+			elseif param.type == "number"   then  writeKvPair(buffer, paramId, getSliderValue(gui:find(paramId), param.min,param.max, param.exp))
+			elseif param.type == "enum"     then  writeKvPair(buffer, paramId, gui:find(paramId):findToggled().data.value)
+			else
+				error(param.type)
+			end
+		end
+
+		writeKvPair(buffer, "filterParam_"..effectInfo.type.."_active"  , gui:find("filterParam_"..effectInfo.type.."_active"  ):isToggled())
+		writeKvPair(buffer, "filterParam_"..effectInfo.type.."_volume"  , gui:find("filterParam_"..effectInfo.type.."_volume"  ):getValue()^2)
+		writeKvPair(buffer, "filterParam_"..effectInfo.type.."_type"    , gui:find("filterParam_"..effectInfo.type.."_type"    ):findToggled().data.value)
+		writeKvPair(buffer, "filterParam_"..effectInfo.type.."_lowgain" , gui:find("filterParam_"..effectInfo.type.."_lowgain" ):getValue()^2)
+		writeKvPair(buffer, "filterParam_"..effectInfo.type.."_highgain", gui:find("filterParam_"..effectInfo.type.."_highgain"):getValue()^2)
+	end
+
+	love.filesystem.write("state", table.concat(buffer))
+end
+
+local function queueSaveAppState()
+	saveAppStateQueued = true
+	saveAppStateTime   = love.timer.getTime() + APP_STATE_SAVE_DELAY
+end
+
+local appState = loadAppState()
+
+
+
+-- Audio.
+--==============================================================
 
 print("getMaxSceneEffects ", love.audio.getMaxSceneEffects()) -- @Robustness: Make sure the system supports (enough) effects.
 print("getMaxSourceEffects", love.audio.getMaxSourceEffects())
 
 local DEFAULT_MASTER_VOLUME = .75
 love.audio.setVolume(DEFAULT_MASTER_VOLUME^2) -- Note: This just affects output from sources - not output from effects!
-
-local function getSliderValue(guiSlider, min,max, exp)
-	return denormalize(guiSlider:getValue(), min,max, exp)
-end
-local function setSliderValue(guiSlider, min,max, exp, v)
-	guiSlider:setValue(normalize(v, min,max, exp))
-end
 
 local function updateActiveEffects()
 	-- Effects.
@@ -153,8 +173,8 @@ local function updateActiveEffects()
 				enabledOrFilterSettings = {
 					volume   = gui:find("filterParam_"..effectInfo.type.."_volume"  ):getValue()^2,
 					type     = filterType,
-					lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find("filterParam_"..effectInfo.type.."_lowgain" ):getValue()^2 or nil,
-					highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find("filterParam_"..effectInfo.type.."_highgain"):getValue()^2 or nil,
+					lowgain  = (filterType ~= "lowpass" ) and gui:find("filterParam_"..effectInfo.type.."_lowgain" ):getValue()^2 or nil,
+					highgain = (filterType ~= "highpass") and gui:find("filterParam_"..effectInfo.type.."_highgain"):getValue()^2 or nil,
 				}
 			end
 
@@ -173,15 +193,15 @@ local function updateActiveEffects()
 		theSource:setFilter{
 			volume   = gui:find"filterParam_volume":getValue()^2,
 			type     = filterType,
-			lowgain  = (filterType == "bandpass" or filterType == "highpass") and gui:find"filterParam_lowgain" :getValue()^2 or nil,
-			highgain = (filterType == "bandpass" or filterType == "lowpass" ) and gui:find"filterParam_highgain":getValue()^2 or nil,
+			lowgain  = (filterType ~= "lowpass" ) and gui:find"filterParam_lowgain" :getValue()^2 or nil,
+			highgain = (filterType ~= "highpass") and gui:find"filterParam_highgain":getValue()^2 or nil,
 		}
 	else
 		theSource:setFilter()
 	end
-end
 
-local currentSoundPath = ""
+	queueSaveAppState()
+end
 
 -- success, error = loadSound( internal, path )
 local function loadSound(internal, path)
@@ -214,7 +234,7 @@ local function loadSound(internal, path)
 		pathOrFileData:release()
 	end
 	if not ok then
-		io.stderr:write("Error: "..source, "\n")
+		io.stderr:write("Error: ", source, "\n")
 		return false, source
 	end
 
@@ -238,11 +258,22 @@ local function loadSound(internal, path)
 	return true
 end
 
-loadSound(true, "sounds/guitar.wav")
+if readAppState(appState, "sourceSound", "") == "" then
+	loadSound(false, readAppState(appState, "sourceCustomSoundPath", ""))
+else
+	loadSound(true, readAppState(appState, "sourceSound", "sounds/guitar.wav"))
+end
+if not theSource then
+	appState.sourceSound = nil
+	loadSound(true, "sounds/guitar.wav")
+end
+theSource:setVolume(readAppState(appState, "sourceVolume", 1))
 
---
+
+
 -- GUI.
---
+--==============================================================
+
 local SPACING           = 8
 local LABEL_EXTRA_WIDTH = 5
 
@@ -314,18 +345,18 @@ local function guiAddToggleParam(guiParent, labelWidth, id, label, toggled, onTo
 		{"button", style="button", id=id, canToggle=true, toggled=toggled, text=label, weight=1},
 	}
 
-	if onToggle then
-		guiRow:findType"button":on("toggle", onToggle)
-	end
+	guiRow:findType"button":on("toggle", function(guiButton, event)
+		if onToggle then  onToggle(guiButton, event)  end
+	end)
 
 	return guiRow
 end
 
-local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, min,max, defaultValue, exp, vFormat, onChange)
+local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, min,max, defaultValue,currentValue, exp, vFormat, onChange)
 	local guiRow = guiParent:insert{"hbar",
 		{"text", width=labelWidth, align="left", text=label..":"},
-		{"slider", id=id, min=0, max=1, value=normalize(defaultValue, min,max, exp), weight=1},
-		{"text", style="output", width=outputWidth, text=string.format(vFormat, defaultValue)},
+		{"slider", id=id, min=0, max=1, value=normalize(currentValue, min,max, exp), weight=1},
+		{"text", style="output", width=outputWidth, text=string.format(vFormat, currentValue)},
 	}
 
 	guiRow:findType"slider":on("valuechange", function(guiSlider)
@@ -385,15 +416,17 @@ local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, 
 	return guiRow
 end
 
-local function guiAddRadioParam(guiParent, labelWidth, id, label, values--[[{ {value1,label[,tooltip]}, ... }]], v, onChange)
+local function guiAddRadioParam(guiParent, labelWidth, id, label, values--[[{ {value1,label[,tooltip]}, ... }]], selectedValue, onChange)
 	local guiRow = guiParent:insert{"hbar",
 		{"text", width=labelWidth, align="left", text=label..":"},
 		{"hbar", id=id, weight=1},
 	}
 
 	for _, valueInfo in ipairs(values) do
-		local guiButton = guiRow:findType"hbar":insert{"button", style="button", data={value=valueInfo[1]}, weight=1, radio=id, canToggle=true, toggled=(valueInfo[1]==v), text=valueInfo[2], tooltip=valueInfo[3]}
-		if onChange then  guiButton:on("toggleon", onChange)  end
+		local guiButton = guiRow:findType"hbar":insert{"button", style="button", data={value=valueInfo[1]}, weight=1, radio=id, canToggle=true, toggled=(valueInfo[1]==selectedValue), text=valueInfo[2], tooltip=valueInfo[3]}
+		guiButton:on("toggleon", function(guiButton, event)
+			if onChange then  onChange(guiButton)  end
+		end)
 	end
 
 	return guiRow
@@ -425,8 +458,8 @@ gui:load{"root", width=LG.getWidth(), height=LG.getHeight(),
 			{"hbar", spacing=SPACING,
 				{"text", text="Export:"},
 				{"button", style="button", id="copyToClipboard"        , text="To clipboard"},
-				{"button", style="button", id="copyToClipboard_effects", text="Include effects", canToggle=true, toggled=true},
-				{"button", style="button", id="copyToClipboard_filters", text="Include filters", canToggle=true, toggled=true},
+				{"button", style="button", id="copyToClipboard_effects", text="Include effects", canToggle=true, toggled=readAppState(appState, "copyToClipboard_effects", true)},
+				{"button", style="button", id="copyToClipboard_filters", text="Include filters", canToggle=true, toggled=readAppState(appState, "copyToClipboard_filters", true)},
 			},
 		},
 		{"hbar", id="columns", spacing=SPACING, homogeneous=true,
@@ -437,6 +470,9 @@ gui:load{"root", width=LG.getWidth(), height=LG.getHeight(),
 		},
 	},
 }
+
+gui:find"copyToClipboard_effects":on("toggle", queueSaveAppState)
+gui:find"copyToClipboard_filters":on("toggle", queueSaveAppState)
 
 gui:find"play":on("toggle", function(guiButton)
 	if guiButton:isToggled() then
@@ -459,12 +495,14 @@ end)
 gui:find"copyToClipboard":on("press", function(guiButton)
 	local buffer = {}
 
-	-- Effects and filters.
+	--
+	-- Effect definitions.
+	--
 	if gui:find"copyToClipboard_effects":isToggled() then
 		for _, effectInfo in ipairs(EFFECTS) do
 			if gui:find("param_"..effectInfo.type.."_active"):isToggled() then
 				table.insert(buffer, "love.audio.setEffect(")
-				table.insert(buffer, toLua("cool"..effectInfo.type))
+				table.insert(buffer, serialize("cool"..effectInfo.type))
 				table.insert(buffer, ", {")
 
 				for i, param in ipairs(effectInfo) do
@@ -474,10 +512,10 @@ gui:find"copyToClipboard":on("press", function(guiButton)
 					table.insert(buffer, param.name)
 					table.insert(buffer, "=")
 
-					if     param.type == "constant" then  table.insert(buffer, toLua(param.value))
-					elseif param.type == "boolean"  then  table.insert(buffer, toLua(gui:find(paramId):isToggled()))
-					elseif param.type == "number"   then  table.insert(buffer, toLua(getSliderValue(gui:find(paramId), param.min,param.max, param.exp)))
-					elseif param.type == "enum"     then  table.insert(buffer, toLua(gui:find(paramId):findToggled().data.value))
+					if     param.type == "constant" then  table.insert(buffer, serialize(param.value))
+					elseif param.type == "boolean"  then  table.insert(buffer, serialize(gui:find(paramId):isToggled()))
+					elseif param.type == "number"   then  table.insert(buffer, serialize(getSliderValue(gui:find(paramId), param.min,param.max, param.exp)))
+					elseif param.type == "enum"     then  table.insert(buffer, serialize(gui:find(paramId):findToggled().data.value))
 					else
 						error(param.type)
 					end
@@ -486,30 +524,65 @@ gui:find"copyToClipboard":on("press", function(guiButton)
 				table.insert(buffer, "})\n")
 			end
 		end
+	end
 
+	--
+	-- Source.
+	--
+	table.insert(buffer, "mySource:setVolume(")
+	table.insert(buffer, serialize(theSource:getVolume()))
+	table.insert(buffer, ")\n")
+
+	-- Filter.
+	if gui:find"copyToClipboard_filters":isToggled() and gui:find"filterParam_active":isToggled() then
+		local filterType = gui:find"filterParam_type":findToggled().data.value
+
+		table.insert(buffer, "mySource:setFilter{")
+
+		table.insert(buffer, "volume=")
+		table.insert(buffer, serialize(gui:find"filterParam_volume":getValue()^2))
+
+		table.insert(buffer, ",type=")
+		table.insert(buffer, serialize(filterType))
+
+		if filterType ~= "lowpass" then
+			table.insert(buffer, ",lowgain=")
+			table.insert(buffer, serialize(gui:find"filterParam_lowgain" :getValue()^2))
+		end
+
+		if filterType ~= "highpass" then
+			table.insert(buffer, ",highgain=")
+			table.insert(buffer, serialize(gui:find"filterParam_highgain":getValue()^2))
+		end
+
+		table.insert(buffer, "}\n")
+	end
+
+	-- Effects.
+	if gui:find"copyToClipboard_effects":isToggled() then
 		for _, effectInfo in ipairs(EFFECTS) do
 			if gui:find("param_"..effectInfo.type.."_active"):isToggled() then
 				table.insert(buffer, "mySource:setEffect(")
-				table.insert(buffer, toLua("cool"..effectInfo.type))
+				table.insert(buffer, serialize("cool"..effectInfo.type))
 
 				if gui:find"copyToClipboard_filters":isToggled() and gui:find("filterParam_"..effectInfo.type.."_active"):isToggled() then
 					local filterType = gui:find("filterParam_"..effectInfo.type.."_type"):findToggled().data.value
 					table.insert(buffer, ", {")
 
 					table.insert(buffer, "volume=")
-					table.insert(buffer, toLua(gui:find("filterParam_"..effectInfo.type.."_volume"  ):getValue()^2))
+					table.insert(buffer, serialize(gui:find("filterParam_"..effectInfo.type.."_volume"  ):getValue()^2))
 
 					table.insert(buffer, ",type=")
-					table.insert(buffer, toLua(filterType))
+					table.insert(buffer, serialize(filterType))
 
-					if filterType == "bandpass" or filterType == "highpass" then
+					if filterType ~= "lowpass" then
 						table.insert(buffer, ",lowgain=")
-						table.insert(buffer, toLua(gui:find("filterParam_"..effectInfo.type.."_lowgain" ):getValue()^2))
+						table.insert(buffer, serialize(gui:find("filterParam_"..effectInfo.type.."_lowgain" ):getValue()^2))
 					end
 
-					if filterType == "bandpass" or filterType == "lowpass"  then
+					if filterType ~= "highpass" then
 						table.insert(buffer, ",highgain=")
-						table.insert(buffer, toLua(gui:find("filterParam_"..effectInfo.type.."_highgain"):getValue()^2))
+						table.insert(buffer, serialize(gui:find("filterParam_"..effectInfo.type.."_highgain"):getValue()^2))
 					end
 
 					table.insert(buffer, "}")
@@ -520,31 +593,9 @@ gui:find"copyToClipboard":on("press", function(guiButton)
 		end
 	end
 
-	-- Filter.
-	if gui:find"copyToClipboard_filters":isToggled() and gui:find"filterParam_active":isToggled() then
-		local filterType = gui:find"filterParam_type":findToggled().data.value
-
-		table.insert(buffer, "mySource:setFilter{")
-
-		table.insert(buffer, "volume=")
-		table.insert(buffer, toLua(gui:find"filterParam_volume":getValue()^2))
-
-		table.insert(buffer, ",type=")
-		table.insert(buffer, toLua(filterType))
-
-		if filterType == "bandpass" or filterType == "highpass" then
-			table.insert(buffer, ",lowgain=")
-			table.insert(buffer, toLua(gui:find"filterParam_lowgain" :getValue()^2))
-		end
-
-		if filterType == "bandpass" or filterType == "lowpass"  then
-			table.insert(buffer, ",highgain=")
-			table.insert(buffer, toLua(gui:find"filterParam_highgain":getValue()^2))
-		end
-
-		table.insert(buffer, "}\n")
-	end
-
+	--
+	-- Done!
+	--
 	if not buffer[1] then
 		showActionMessage("Nothing to export")
 		return
@@ -574,7 +625,7 @@ do
 	-- Header.
 	guiSource:insert{"hbar", spacing=SPACING,
 		{"text", align="left", text="Source", font=fontLarge, weight=1},
-		{"button", style="button", id="filterParam_active", canToggle=true, text="Filter"},
+		{"button", style="button", id="filterParam_active", text="Filter", canToggle=true, toggled=readAppState(appState, "filterParam_active", false)},
 	}
 	guiSource:find"filterParam_active":on("toggle", function(guiButton)
 		guiSource:find"filterParams":setVisible(guiButton:isToggled())
@@ -582,63 +633,71 @@ do
 	end)
 
 	-- Source parameters.
-	guiAddRadioParam(guiSource, labelWidth, "sourceSound", "sound", {{"sounds/fight.ogg","Fight"},{"sounds/guitar.wav","Guitar"},{"sounds/speech.ogg","Speech"},{"","Custom"}}, "sounds/guitar.wav", function(guiButton)
+	local values = {{"sounds/fight.ogg","Fight"},{"sounds/guitar.wav","Guitar"},{"sounds/speech.ogg","Speech"},{"","Custom"}}
+	local v      = readAppState(appState, "sourceSound", "sounds/guitar.wav", values)
+	guiAddRadioParam(guiSource, labelWidth, "sourceSound", "sound", values, v, function(guiButton)
 		if guiButton.data.value == "" then
-			guiSource:find"customSoundPath":trigger("submit")
+			guiSource:find"sourceCustomSoundPath":trigger("submit")
 		else
 			loadSound(true, guiButton.data.value)
-			guiSource:find"customSoundError":hide()
+			guiSource:find"sourceCustomSoundError":hide()
 			updateActiveEffects()
 		end
 	end)
 
 	guiSource:insert{"hbar",
 		{"text", width=labelWidth, align="left", text="custom:"},
-		{"input", id="customSoundPath", placeholder="C:/path/to/sound", weight=1, tooltip="You can drag files into the window too!"},
+		{"input", id="sourceCustomSoundPath", value=readAppState(appState, "sourceCustomSoundPath", ""), placeholder="C:/path/to/sound", weight=1, tooltip="You can drag files into the window too!"},
 	}
-	guiSource:find"customSoundPath":on("submit", function(guiInput)
+	guiSource:find"sourceCustomSoundPath":on("change", function(guiInput)
+		queueSaveAppState()
+	end)
+	guiSource:find"sourceCustomSoundPath":on("submit", function(guiInput)
 		local path = guiInput:getValue()
 		if path == "" then  return  end
 
 		local ok, err = loadSound(false, path)
 		if not ok then
 			local textW = guiInput:getLayoutWidth() - 4
-			guiSource:find"customSoundError":show()
-			guiSource:find"customSoundError":find"_text":setText("Error: "..err)
-			guiSource:find"customSoundError":find"_text"._textWrapLimit = textW -- @Hack: No fitting library method!
+			guiSource:find"sourceCustomSoundError":show()
+			guiSource:find"sourceCustomSoundError":find"_text":setText("Error: "..err)
+			guiSource:find"sourceCustomSoundError":find"_text"._textWrapLimit = textW -- @Hack: No fitting library method!
 			gui:scheduleLayoutUpdate()
 			return
 		end
 
 		guiSource:find"sourceSound":setToggledChild(#guiSource:find"sourceSound")
-		guiSource:find"customSoundError":hide()
+		guiSource:find"sourceCustomSoundError":hide()
 		updateActiveEffects()
 	end)
 
-	guiSource:insert{"hbar", id="customSoundError", hidden=true,
+	guiSource:insert{"hbar", id="sourceCustomSoundError", hidden=true,
 		{"text", width=labelWidth},
 		{"text", id="_text", wrapText=true, align="left", textColor={.9,.1,.1}},
 	}
 
-	guiAddSliderParam(guiSource, labelWidth, fontSmall:getWidth"1.00", "sourceVolume", "volume", 0,1, 1, 2, "%.2f", function(guiSlider)
+	guiAddSliderParam(guiSource, labelWidth, fontSmall:getWidth"1.00", "sourceVolume", "volume", 0,1, 1,theSource:getVolume(), 2, "%.2f", function(guiSlider)
 		theSource:setVolume(guiSlider:getValue()^2)
+		queueSaveAppState()
 	end)
 
 	-- Filter parameters.
-	local guiFilterRows = guiSource:insert{"vbar", id="filterParams", hidden=true,
+	local guiFilterRows = guiSource:insert{"vbar", id="filterParams", hidden=not readAppState(appState, "filterParam_active", false),
 		{"text", style="biglabel", text="Filter"},
 	}
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_volume", "volume", 0,1, 1, 2, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_volume", "volume", 0,1, 1,readAppState(appState, "filterParam_volume", 1), 2, "%.2f", updateActiveEffects)
 
-	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "type", {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}, "lowpass", function(guiButton)
-		guiFilterRows:find"filterParam_lowgain" :setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
-		guiFilterRows:find"filterParam_highgain":setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
+	local values = {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}
+	local v      = readAppState(appState, "filterParam_type", "lowpass", values)
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "type", values, v, function(guiButton)
+		guiFilterRows:find"filterParam_lowgain" :setActive(guiButton.data.value ~= "lowpass" )
+		guiFilterRows:find"filterParam_highgain":setActive(guiButton.data.value ~= "highpass")
 		updateActiveEffects()
 	end)
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_lowgain" , "lowgain" , 0,1, 1, 2, "%.2f", updateActiveEffects):findType"slider":setActive(false)
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_highgain", "highgain", 0,1, 1, 2, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_lowgain" , "lowgain" , 0,1, 1,readAppState(appState, "filterParam_lowgain" , 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "lowpass" )
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_highgain", "highgain", 0,1, 1,readAppState(appState, "filterParam_highgain", 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "highpass")
 end
 
 -- Effects.
@@ -673,8 +732,8 @@ for _, effectInfo in ipairs(EFFECTS) do
 	guiEffect:insert{"hbar", spacing=SPACING,
 		{"text", align="left", text=effectInfo.title, font=fontLarge, weight=1},
 		{"button", style="button", id="presets_"    ..effectInfo.type           , text="Presets"},
-		{"button", style="button", id="filterParam_"..effectInfo.type.."_active", text="Filter", canToggle=true},
-		{"button", style="button", id="param_"      ..effectInfo.type.."_active", text="Active", canToggle=true},
+		{"button", style="button", id="filterParam_"..effectInfo.type.."_active", text="Filter", canToggle=true, toggled=readAppState(appState, "filterParam_"..effectInfo.type.."_active", false)},
+		{"button", style="button", id="param_"      ..effectInfo.type.."_active", text="Active", canToggle=true, toggled=readAppState(appState, "param_"      ..effectInfo.type.."_active", false)},
 	}
 
 	guiEffect:find("param_"..effectInfo.type.."_active"):on("toggle", function(guiButton)
@@ -719,41 +778,45 @@ for _, effectInfo in ipairs(EFFECTS) do
 		end)
 	end)
 
-	local guiBody = guiEffect:insert{"vbar", id="body", spacing=SPACING, hidden=true}
+	local guiBody = guiEffect:insert{"vbar", id="body", spacing=SPACING, hidden=not readAppState(appState, "param_"..effectInfo.type.."_active", false)}
 
 	-- Effect parameters.
 	for _, param in ipairs(effectInfo) do
 		local paramId = "param_"..effectInfo.type.."_"..param.name
 
-		if     param.type == "constant" then  guiAddConstantParam(guiBody, labelWidth, param.name, param.value)
-		elseif param.type == "boolean"  then  guiAddToggleParam(guiBody, labelWidth, paramId, param.name, param.default, updateActiveEffects)
-		elseif param.type == "number"   then  guiAddSliderParam(guiBody, labelWidth, numberOutputWidth, paramId, param.name, param.min,param.max, param.default, param.exp, param.format, updateActiveEffects)
-		elseif param.type == "enum"     then  guiAddRadioParam(guiBody, labelWidth, paramId, param.name, param.values, param.default, updateActiveEffects)
+		if     param.type == "constant" then  guiAddConstantParam(guiBody, labelWidth,                             param.name, param.value)
+		elseif param.type == "boolean"  then  guiAddToggleParam  (guiBody, labelWidth,                    paramId, param.name, readAppState(appState, paramId, param.default), updateActiveEffects)
+		elseif param.type == "number"   then  guiAddSliderParam  (guiBody, labelWidth, numberOutputWidth, paramId, param.name, param.min,param.max, param.default,readAppState(appState, paramId, param.default), param.exp, param.format, updateActiveEffects)
+		elseif param.type == "enum"     then  guiAddRadioParam   (guiBody, labelWidth,                    paramId, param.name, param.values, readAppState(appState, paramId, param.default, param.values), updateActiveEffects)
 		else
 			error(param.type)
 		end
 	end
 
 	-- Filter parameters.
-	local guiFilterRows = guiBody:insert{"vbar", id="filterParams", hidden=true,
+	local guiFilterRows = guiBody:insert{"vbar", id="filterParams", hidden=not readAppState(appState, "filterParam_"..effectInfo.type.."_active", false),
 		{"text", style="biglabel", text="Filter"},
 	}
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_volume", "volume", 0,1, 1, 2, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_volume", "volume", 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_volume", 1), 2, "%.2f", updateActiveEffects)
 
-	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_"..effectInfo.type.."_type", "type", {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}, "lowpass", function(guiButton)
-		guiFilterRows:find("filterParam_"..effectInfo.type.."_lowgain" ):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "highpass")
-		guiFilterRows:find("filterParam_"..effectInfo.type.."_highgain"):setActive(guiButton.data.value == "bandpass" or guiButton.data.value == "lowpass" )
+	local values = {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}
+	local v      = readAppState(appState, "filterParam_"..effectInfo.type.."_type", "lowpass", values)
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_"..effectInfo.type.."_type", "type", values, v, function(guiButton)
+		guiFilterRows:find("filterParam_"..effectInfo.type.."_lowgain" ):setActive(guiButton.data.value ~= "lowpass" )
+		guiFilterRows:find("filterParam_"..effectInfo.type.."_highgain"):setActive(guiButton.data.value ~= "highpass")
 		updateActiveEffects()
 	end)
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_lowgain" , "lowgain" , 0,1, 1, 2, "%.2f", updateActiveEffects):findType"slider":setActive(false)
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_highgain", "highgain", 0,1, 1, 2, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_lowgain" , "lowgain" , 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_lowgain" , 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "lowpass" )
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_highgain", "highgain", 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_highgain", 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "highpass")
 end
 
---
+
+
 -- LÖVE callbacks.
---
+--==============================================================
+
 local whale = {
 	x        = 100.0,
 	y        = 0.0,
@@ -830,6 +893,10 @@ function love.update(dt)
 	time  = time + dt
 
 	gui:update(dt)
+
+	if saveAppStateQueued and love.timer.getTime() >= saveAppStateTime then
+		saveAppStateNow()
+	end
 
 	local reached
 
@@ -912,7 +979,16 @@ function love.resize(ww, wh)
 end
 
 function love.filedropped(file)
-	local guiInput = gui:find"source":find"customSoundPath"
+	local guiInput = gui:find"source":find"sourceCustomSoundPath"
 	guiInput:setValue(file:getFilename())
 	guiInput:trigger("submit")
 end
+
+function love.quit()
+	if saveAppStateQueued then
+		saveAppStateNow()
+	end
+	return false
+end
+
+

@@ -230,7 +230,7 @@ return {
 			local textAreaY = math.floor((h-textH)/2)
 			local textAreaW = w - 2*textIndent
 
-			textEl:setScissor(0, 0, w, h) -- Make sure text doesn't render outside the element.
+			-- textEl:setScissor(0, 0, w, h) -- Make sure text doesn't render outside the element.
 
 			textEl:useFont()
 			textEl:useTextColor()

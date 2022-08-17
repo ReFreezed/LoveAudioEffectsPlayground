@@ -11,11 +11,13 @@
 
 	Color
 	expKeepSign
+	indexOf, itemWith1
 	ipairsr
 	moveTowards
 	normalize, denormalize
 	randomf
-	toLua
+	serialize, deserialize
+	writeKvPair
 
 --============================================================]]
 
@@ -91,7 +93,7 @@ end
 
 
 
-function _G.toLua(v)
+function _G.serialize(v)
 	if type(v) == "string" then
 		return string.format("%q", v)
 	elseif type(v) == "number" or type(v) == "boolean" or v == nil then
@@ -99,6 +101,37 @@ function _G.toLua(v)
 	else
 		error(type(v))
 	end
+end
+
+function _G.deserialize(vStr)
+	return assert(loadstring("return "..vStr, "@(deserialize)"))()
+end
+
+
+
+function _G.writeKvPair(buffer, k, v)
+	table.insert(buffer, k)
+	table.insert(buffer, " = ")
+	table.insert(buffer, serialize(v))
+	table.insert(buffer, "\n")
+end
+
+
+-- index|nil = indexOf( array, value )
+function _G.indexOf(arr, v)
+	for i = 1, #arr do
+		if arr[i] == v then  return i  end
+	end
+	return nil
+end
+
+-- item, index = itemWith1( array, key, value )
+-- Returns nil if the item isn't found.
+function _G.itemWith1(arr, k, v)
+	for i = 1, #arr do
+		if arr[i][k] == v then  return arr[i], i  end
+	end
+	return nil
 end
 
 
