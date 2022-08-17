@@ -243,16 +243,25 @@ loadSound(true, "sounds/guitar.wav")
 --
 -- GUI.
 --
+local SPACING           = 8
+local LABEL_EXTRA_WIDTH = 5
+
 local fontSmall   = LG.newFont("fonts/NotoSans-Medium.ttf"  , 10)
 local fontNormal  = LG.newFont("fonts/NotoSans-Medium.ttf"  , 13)
 local fontButtons = LG.newFont("fonts/NotoSans-SemiBold.ttf", 13)
 local fontLarge   = LG.newFont("fonts/NotoSans-SemiBold.ttf", 16)
+local fontHuge    = LG.newFont("fonts/NotoSans-SemiBold.ttf", 28)
 
 local imageHeart = LG.newImage("gfx/heart.png")
 local imageWhale = LG.newImage("gfx/whale.png")
 
-local SPACING           = 8
-local LABEL_EXTRA_WIDTH = 5
+local actionMessage     = ""
+local actionMessageTime = -1/0
+
+local function showActionMessage(s)
+	actionMessage     = s
+	actionMessageTime = love.timer.getTime()
+end
 
 -- showTextPrompt( title, label, initialValue, callback )
 -- callback( path|nil )
@@ -415,9 +424,9 @@ gui:load{"root", width=LG.getWidth(), height=LG.getHeight(),
 			},
 			{"hbar", spacing=SPACING,
 				{"text", text="Export:"},
-				{"button", style="button", id="copyToClipboard", text="To clipboard"},
-				{"button", style="button", id="copyEffects", text="Include effects", canToggle=true, toggled=true},
-				{"button", style="button", id="copyFilters", text="Include filters", canToggle=true, toggled=true},
+				{"button", style="button", id="copyToClipboard"        , text="To clipboard"},
+				{"button", style="button", id="copyToClipboard_effects", text="Include effects", canToggle=true, toggled=true},
+				{"button", style="button", id="copyToClipboard_filters", text="Include filters", canToggle=true, toggled=true},
 			},
 		},
 		{"hbar", id="columns", spacing=SPACING, homogeneous=true,
@@ -448,7 +457,106 @@ gui:find"masterVolume":on("valuechange", function(guiSlider)
 end)
 
 gui:find"copyToClipboard":on("press", function(guiButton)
-	-- @Incomplete
+	local buffer = {}
+
+	-- Effects and filters.
+	if gui:find"copyToClipboard_effects":isToggled() then
+		for _, effectInfo in ipairs(EFFECTS) do
+			if gui:find("param_"..effectInfo.type.."_active"):isToggled() then
+				table.insert(buffer, "love.audio.setEffect(")
+				table.insert(buffer, toLua("cool"..effectInfo.type))
+				table.insert(buffer, ", {")
+
+				for i, param in ipairs(effectInfo) do
+					local paramId = "param_"..effectInfo.type.."_"..param.name
+
+					if i > 1 then  table.insert(buffer, ",")  end
+					table.insert(buffer, param.name)
+					table.insert(buffer, "=")
+
+					if     param.type == "constant" then  table.insert(buffer, toLua(param.value))
+					elseif param.type == "boolean"  then  table.insert(buffer, toLua(gui:find(paramId):isToggled()))
+					elseif param.type == "number"   then  table.insert(buffer, toLua(getSliderValue(gui:find(paramId), param.min,param.max, param.exp)))
+					elseif param.type == "enum"     then  table.insert(buffer, toLua(gui:find(paramId):findToggled().data.value))
+					else
+						error(param.type)
+					end
+				end
+
+				table.insert(buffer, "})\n")
+			end
+		end
+
+		for _, effectInfo in ipairs(EFFECTS) do
+			if gui:find("param_"..effectInfo.type.."_active"):isToggled() then
+				table.insert(buffer, "mySource:setEffect(")
+				table.insert(buffer, toLua("cool"..effectInfo.type))
+
+				if gui:find"copyToClipboard_filters":isToggled() and gui:find("filterParam_"..effectInfo.type.."_active"):isToggled() then
+					local filterType = gui:find("filterParam_"..effectInfo.type.."_type"):findToggled().data.value
+					table.insert(buffer, ", {")
+
+					table.insert(buffer, "volume=")
+					table.insert(buffer, toLua(gui:find("filterParam_"..effectInfo.type.."_volume"  ):getValue()^2))
+
+					table.insert(buffer, ",type=")
+					table.insert(buffer, toLua(filterType))
+
+					if filterType == "bandpass" or filterType == "highpass" then
+						table.insert(buffer, ",lowgain=")
+						table.insert(buffer, toLua(gui:find("filterParam_"..effectInfo.type.."_lowgain" ):getValue()^2))
+					end
+
+					if filterType == "bandpass" or filterType == "lowpass"  then
+						table.insert(buffer, ",highgain=")
+						table.insert(buffer, toLua(gui:find("filterParam_"..effectInfo.type.."_highgain"):getValue()^2))
+					end
+
+					table.insert(buffer, "}")
+				end
+
+				table.insert(buffer, ")\n")
+			end
+		end
+	end
+
+	-- Filter.
+	if gui:find"copyToClipboard_filters":isToggled() and gui:find"filterParam_active":isToggled() then
+		local filterType = gui:find"filterParam_type":findToggled().data.value
+
+		table.insert(buffer, "mySource:setFilter{")
+
+		table.insert(buffer, "volume=")
+		table.insert(buffer, toLua(gui:find"filterParam_volume":getValue()^2))
+
+		table.insert(buffer, ",type=")
+		table.insert(buffer, toLua(filterType))
+
+		if filterType == "bandpass" or filterType == "highpass" then
+			table.insert(buffer, ",lowgain=")
+			table.insert(buffer, toLua(gui:find"filterParam_lowgain" :getValue()^2))
+		end
+
+		if filterType == "bandpass" or filterType == "lowpass"  then
+			table.insert(buffer, ",highgain=")
+			table.insert(buffer, toLua(gui:find"filterParam_highgain":getValue()^2))
+		end
+
+		table.insert(buffer, "}\n")
+	end
+
+	if not buffer[1] then
+		showActionMessage("Nothing to export")
+		return
+	end
+
+	local s = table.concat(buffer):gsub("\n$", "")
+	print("--------------------------------")
+	print(s)
+	print("--------------------------------")
+	love.system.setClipboardText(s)
+
+	showActionMessage("Exported Lua to clipboard")
 end)
 
 -- Source.
@@ -486,7 +594,7 @@ do
 
 	guiSource:insert{"hbar",
 		{"text", width=labelWidth, align="left", text="custom:"},
-		{"input", id="customSoundPath", placeholder="C:/path/to/sound.wav", weight=1, tooltip="You can drag files into the window too!"},
+		{"input", id="customSoundPath", placeholder="C:/path/to/sound", weight=1, tooltip="You can drag files into the window too!"},
 	}
 	guiSource:find"customSoundPath":on("submit", function(guiInput)
 		local path = guiInput:getValue()
@@ -754,6 +862,7 @@ end
 function love.draw()
 	LG.clear(Color"b1e3fa")
 
+	-- Lovely stuff.
 	LG.push("all")
 		LG.translate(0, LG.getHeight()/2)
 
@@ -775,7 +884,25 @@ function love.draw()
 		end
 	LG.pop()
 
+	-- GUI.
 	gui:draw()
+
+	-- Action message.
+	local DURATION  = 2.00
+	local FADE_TIME = 1.50
+	local a         = math.min(1-(love.timer.getTime()-actionMessageTime-(DURATION-FADE_TIME))/FADE_TIME, 1)
+
+	if a > 0 then
+		local w = fontHuge:getWidth(actionMessage)
+		local h = fontHuge:getHeight()
+		local x = math.floor((LG.getWidth ()-w)/2)
+		local y = math.floor((LG.getHeight()-h)/2)
+		LG.setFont(fontHuge)
+		LG.setColor(1, 1, 1, a^1.5)
+		LG.rectangle("fill", x-4,y-4, w+2*4,h+2*4)
+		LG.setColor(0, 0, 0, a^1.5)
+		LG.print(actionMessage, x,y)
+	end
 
 	-- LG.setColor(0, 0, 0) ; LG.print(whale.angle.."\n"..whale.velocity) -- DEBUG
 end

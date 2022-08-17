@@ -15,6 +15,7 @@
 	moveTowards
 	normalize, denormalize
 	randomf
+	toLua
 
 --============================================================]]
 
@@ -86,6 +87,18 @@ end
 
 function _G.ipairsr(arr)
 	return iprev, arr, #arr+1
+end
+
+
+
+function _G.toLua(v)
+	if type(v) == "string" then
+		return string.format("%q", v)
+	elseif type(v) == "number" or type(v) == "boolean" or v == nil then
+		return (tostring(v):gsub("^(%-?)0.", "%1."))
+	else
+		error(type(v))
+	end
 end
 
 

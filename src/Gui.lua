@@ -7857,7 +7857,7 @@ function Cs.element.showMenu(el, items, hlIndices, offsetX, offsetY, cb)
 	local menu = root:insert{
 		type="container", style="_MENU", relativeWidth=1, relativeHeight=1,
 		closable=true, captureGuiInput=true, confineNavigation=true,
-		[1] = {type="vbar", minWidth=el._layoutWidth, maxHeight=root._layoutHeight-root:getInnerSpaceY()},
+		[1] = {type="vbar", minWidth=math.max(el._layoutWidth, 150), maxHeight=root._layoutHeight-root:getInnerSpaceY()}, -- @Edit
 	}
 
 	menu:on("closed", function(button, event)
