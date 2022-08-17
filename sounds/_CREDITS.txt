@@ -4,3 +4,5 @@ LÖVE Audio Effects Playground
 fight.ogg by mrrap4food (https://freesound.org/people/mrrap4food/sounds/619057/)
 guitar.wav by Kyster (https://freesound.org/people/Kyster/sounds/75527/)
 speech.ogg by GeoDesign (https://freesound.org/people/GeoDesign/sounds/190503/)
+suspense.wav by Rorschakk (https://freesound.org/people/Rorschakk/sounds/636989/)
+walk.wav by Samuel Strågefors (https://freesound.org/people/straget/sounds/411206/)

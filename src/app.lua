@@ -12,10 +12,6 @@
 
 
 -- Setup.
-if not DEV then
-	love.window.maximize()
-end
-
 io.stdout:setvbuf("no")
 io.stderr:setvbuf("no")
 
@@ -416,20 +412,35 @@ local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, 
 	return guiRow
 end
 
-local function guiAddRadioParam(guiParent, labelWidth, id, label, values--[[{ {value1,label[,tooltip]}, ... }]], selectedValue, onChange)
-	local guiRow = guiParent:insert{"hbar",
+local function guiAddRadioParam(guiParent, labelWidth, id, label, maxValuesPerRow, values--[[{ {value1,label[,tooltip]}, ... }]], selectedValue, onChange)
+	local guiParam = guiParent:insert{"hbar",
 		{"text", width=labelWidth, align="left", text=label..":"},
-		{"hbar", id=id, weight=1},
+		{"vbar", id=id, weight=1},
 	}
+	local guiRows = guiParam:findType"vbar"
+	local guiRow
 
-	for _, valueInfo in ipairs(values) do
-		local guiButton = guiRow:findType"hbar":insert{"button", style="button", data={value=valueInfo[1]}, weight=1, radio=id, canToggle=true, toggled=(valueInfo[1]==selectedValue), text=valueInfo[2], tooltip=valueInfo[3]}
+	for i, valueInfo in ipairs(values) do
+		if i % maxValuesPerRow == 1 then
+			guiRow = guiRows:insert{"hbar"}
+		end
+
+		local guiButton = guiRow:insert{"button",
+			style     = "button",
+			data      = {value=valueInfo[1]},
+			weight    = 1,
+			radio     = id,
+			canToggle = true,
+			toggled   = (valueInfo[1]==selectedValue),
+			text      = valueInfo[2],
+			tooltip   = valueInfo[3],
+		}
 		guiButton:on("toggleon", function(guiButton, event)
-			if onChange then  onChange(guiButton)  end
+			if onChange then  onChange(guiButton, event)  end
 		end)
 	end
 
-	return guiRow
+	return guiParam
 end
 
 gui = require"Gui"()
@@ -633,9 +644,9 @@ do
 	end)
 
 	-- Source parameters.
-	local values = {{"sounds/fight.ogg","Fight"},{"sounds/guitar.wav","Guitar"},{"sounds/speech.ogg","Speech"},{"","Custom"}}
+	local values = {{"sounds/fight.ogg","Fight"},{"sounds/guitar.wav","Guitar"},{"sounds/speech.ogg","Speech"},{"sounds/suspense.wav","Suspense"},{"sounds/walk.wav","Walk"},{"","Custom"}}
 	local v      = readAppState(appState, "sourceSound", "sounds/guitar.wav", values)
-	guiAddRadioParam(guiSource, labelWidth, "sourceSound", "sound", values, v, function(guiButton)
+	guiAddRadioParam(guiSource, labelWidth, "sourceSound", "sound", 3, values, v, function(guiButton)
 		if guiButton.data.value == "" then
 			guiSource:find"sourceCustomSoundPath":trigger("submit")
 		else
@@ -654,7 +665,8 @@ do
 	end)
 	guiSource:find"sourceCustomSoundPath":on("submit", function(guiInput)
 		local path = guiInput:getValue()
-		if path == "" then  return  end
+		if path == ""               then  return  end
+		if path == currentSoundPath then  return  end -- Prevents this function from sometimes being called recursively by setToggled() below.
 
 		local ok, err = loadSound(false, path)
 		if not ok then
@@ -666,7 +678,10 @@ do
 			return
 		end
 
-		guiSource:find"sourceSound":setToggledChild(#guiSource:find"sourceSound")
+		local guiButtons = guiSource:find"sourceSound":matchAll"button"
+		for i, guiButton in ipairs(guiButtons) do
+			guiButton:setToggled(i == #guiButtons)
+		end
 		guiSource:find"sourceCustomSoundError":hide()
 		updateActiveEffects()
 	end)
@@ -690,7 +705,7 @@ do
 
 	local values = {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}
 	local v      = readAppState(appState, "filterParam_type", "lowpass", values)
-	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "type", values, v, function(guiButton)
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_type", "type", 99, values, v, function(guiButton)
 		guiFilterRows:find"filterParam_lowgain" :setActive(guiButton.data.value ~= "lowpass" )
 		guiFilterRows:find"filterParam_highgain":setActive(guiButton.data.value ~= "highpass")
 		updateActiveEffects()
@@ -787,7 +802,7 @@ for _, effectInfo in ipairs(EFFECTS) do
 		if     param.type == "constant" then  guiAddConstantParam(guiBody, labelWidth,                             param.name, param.value)
 		elseif param.type == "boolean"  then  guiAddToggleParam  (guiBody, labelWidth,                    paramId, param.name, readAppState(appState, paramId, param.default), updateActiveEffects)
 		elseif param.type == "number"   then  guiAddSliderParam  (guiBody, labelWidth, numberOutputWidth, paramId, param.name, param.min,param.max, param.default,readAppState(appState, paramId, param.default), param.exp, param.format, updateActiveEffects)
-		elseif param.type == "enum"     then  guiAddRadioParam   (guiBody, labelWidth,                    paramId, param.name, param.values, readAppState(appState, paramId, param.default, param.values), updateActiveEffects)
+		elseif param.type == "enum"     then  guiAddRadioParam   (guiBody, labelWidth,                    paramId, param.name, 99, param.values, readAppState(appState, paramId, param.default, param.values), updateActiveEffects)
 		else
 			error(param.type)
 		end
@@ -795,14 +810,14 @@ for _, effectInfo in ipairs(EFFECTS) do
 
 	-- Filter parameters.
 	local guiFilterRows = guiBody:insert{"vbar", id="filterParams", hidden=not readAppState(appState, "filterParam_"..effectInfo.type.."_active", false),
-		{"text", style="biglabel", text="Filter"},
+		{"text", style="biglabel", text="Pre-filter"},
 	}
 
 	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_volume", "volume", 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_volume", 1), 2, "%.2f", updateActiveEffects)
 
 	local values = {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}
 	local v      = readAppState(appState, "filterParam_"..effectInfo.type.."_type", "lowpass", values)
-	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_"..effectInfo.type.."_type", "type", values, v, function(guiButton)
+	guiAddRadioParam(guiFilterRows, labelWidth, "filterParam_"..effectInfo.type.."_type", "type", 99, values, v, function(guiButton)
 		guiFilterRows:find("filterParam_"..effectInfo.type.."_lowgain" ):setActive(guiButton.data.value ~= "lowpass" )
 		guiFilterRows:find("filterParam_"..effectInfo.type.."_highgain"):setActive(guiButton.data.value ~= "highpass")
 		updateActiveEffects()
@@ -811,6 +826,8 @@ for _, effectInfo in ipairs(EFFECTS) do
 	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_lowgain" , "lowgain" , 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_lowgain" , 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "lowpass" )
 	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_highgain", "highgain", 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_highgain", 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "highpass")
 end
+
+updateActiveEffects()
 
 
 

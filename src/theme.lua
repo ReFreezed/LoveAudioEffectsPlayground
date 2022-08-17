@@ -257,7 +257,7 @@ return {
 			if button:isPressed() and isHovered then  r, g, b = r*.8, g*.8, b*.8  end
 
 			r, g, b = Gui.lerpColor(r,g,b, 1,1,1, .2*highlight)
-			local a = .8 * opacity
+			local a = opacity
 
 			Gui.setColor(r, g, b, a)
 			Gui.draw9SliceScaled(1, 1, w-2, h-2, buttonBackgroundImage, unpack(buttonBackgroundQuads))
