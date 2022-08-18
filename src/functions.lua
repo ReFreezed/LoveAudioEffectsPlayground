@@ -16,6 +16,7 @@
 	ipairsr
 	moveTowards
 	normalize, denormalize
+	printError, printfError
 	randomf
 	serialize, deserialize
 	writeKvPair
@@ -139,6 +140,20 @@ end
 
 function _G.clamp(v, min, max)
 	return math.max(math.min(v, max), min)
+end
+
+
+
+function _G.printError(...)
+	for i = 1, select("#", ...) do
+		if i > 1 then  io.stderr:write("\n")  end
+		io.stderr:write(tostring((select(i, ...))))
+	end
+	io.stderr:write("\n")
+end
+
+function _G.printfError(s, ...)
+	io.stderr:write(s:format(...), "\n")
 end
 
 

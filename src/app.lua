@@ -22,6 +22,7 @@ _G.TAU                  = 2*math.pi
 _G.APP_STATE_SAVE_DELAY = 5.00
 
 -- Modules.
+_G.LA         = love.audio
 _G.LG         = love.graphics
 local EFFECTS = require"effects"
 local PRESETS = require"presets"
@@ -29,16 +30,34 @@ local PRESETS = require"presets"
 require"functions"
 
 -- Variables.
-local theSource          = nil
-local currentSoundPath   = ""
 local saveAppStateQueued = false
 local saveAppStateTime   = 0.00
+
+local actionMessage     = ""
+local actionMessageTime = -1/0
+
+local theSource        = nil
+local currentSoundPath = ""
 local gui
 
 
 
 -- Misc.
 --==============================================================
+
+
+
+local function showActionMessage(s, ...)
+	actionMessage     = s:format(...)
+	actionMessageTime = love.timer.getTime()
+	print(actionMessage)
+end
+
+local function showActionErrorMessage(s, ...)
+	actionMessage     = ("Error: "..s):format(...)
+	actionMessageTime = love.timer.getTime()
+	printError(actionMessage)
+end
 
 
 
@@ -63,7 +82,7 @@ local function loadAppState()
 		if k then
 			appState[k] = deserialize(vStr)
 		else
-			io.stderr:write("state: Error: Bad line format: ", line, "\n")
+			printError("state: Error: Bad line format: "..line)
 		end
 	end
 
@@ -138,11 +157,11 @@ local appState = loadAppState()
 -- Audio.
 --==============================================================
 
-print("getMaxSceneEffects ", love.audio.getMaxSceneEffects()) -- @Robustness: Make sure the system supports (enough) effects.
-print("getMaxSourceEffects", love.audio.getMaxSourceEffects())
+print("getMaxSceneEffects ", LA.getMaxSceneEffects())
+print("getMaxSourceEffects", LA.getMaxSourceEffects())
 
 local DEFAULT_MASTER_VOLUME = .75
-love.audio.setVolume(DEFAULT_MASTER_VOLUME^2) -- Note: This just affects output from sources - not output from effects!
+LA.setVolume(DEFAULT_MASTER_VOLUME^2) -- Note: This just affects output from sources - not output from effects!
 
 local function updateActiveEffects()
 	-- Effects.
@@ -174,12 +193,20 @@ local function updateActiveEffects()
 				}
 			end
 
-			love.audio.setEffect(effectInfo.type, settings)
-			theSource:setEffect(effectInfo.type, enabledOrFilterSettings)
+			if not LA.setEffect(effectInfo.type, settings) then
+				showActionErrorMessage("Failed defining effect '%s'.", effectInfo.type)
+			end
+			if not theSource:setEffect(effectInfo.type, enabledOrFilterSettings) then
+				showActionErrorMessage("Failed adding effect '%s'.", effectInfo.type)
+			end
 
 		else
-			theSource:setEffect(effectInfo.type, false)
-			love.audio.setEffect(effectInfo.type, false)
+			if not theSource:setEffect(effectInfo.type, false) and indexOf(theSource:getActiveEffects(), effectInfo.type) then
+				showActionErrorMessage("Failed removing effect '%s'.", effectInfo.type)
+			end
+			if not LA.setEffect(effectInfo.type, false) and indexOf(LA.getActiveEffects(), effectInfo.type) then
+				showActionErrorMessage("Failed undefining effect '%s'.", effectInfo.type)
+			end
 		end
 	end
 
@@ -212,12 +239,12 @@ local function loadSound(internal, path)
 		local file, err = io.open(path, "rb") -- @Incomplete: UTF-8!
 		if not file then
 			err = err:gsub("%.?$", ".", 1)
-			io.stderr:write("Error: ", err)
 			if love.system.getOS() == "Windows" and path:find"[\128-\255]" then
+				printError("Error: "..err.." (Paths with non-ASCII characters are not supported.)")
 				err = "Paths with non-ASCII characters are not supported."
-				io.stderr:write(" (", err, ")")
+			else
+				printError("Error: "..err)
 			end
-			io.stderr:write("\n")
 			return false, err
 		end
 		pathOrFileData = love.filesystem.newFileData(file:read"*a", path)
@@ -225,12 +252,12 @@ local function loadSound(internal, path)
 		print("File size: "..formatBytes(pathOrFileData:getSize()))
 	end
 
-	local ok, source = pcall(love.audio.newSource, pathOrFileData, "static")
+	local ok, source = pcall(LA.newSource, pathOrFileData, "static")
 	if type(pathOrFileData) == "userdata" then
 		pathOrFileData:release()
 	end
 	if not ok then
-		io.stderr:write("Error: ", source, "\n")
+		printError("Error: "..source)
 		return false, source
 	end
 
@@ -277,18 +304,10 @@ local fontSmall   = LG.newFont("fonts/NotoSans-Medium.ttf"  , 10)
 local fontNormal  = LG.newFont("fonts/NotoSans-Medium.ttf"  , 13)
 local fontButtons = LG.newFont("fonts/NotoSans-SemiBold.ttf", 13)
 local fontLarge   = LG.newFont("fonts/NotoSans-SemiBold.ttf", 16)
-local fontHuge    = LG.newFont("fonts/NotoSans-SemiBold.ttf", 28)
+local fontHuge    = LG.newFont("fonts/NotoSans-SemiBold.ttf", 24)
 
 local imageHeart = LG.newImage("gfx/heart.png")
 local imageWhale = LG.newImage("gfx/whale.png")
-
-local actionMessage     = ""
-local actionMessageTime = -1/0
-
-local function showActionMessage(s)
-	actionMessage     = s
-	actionMessageTime = love.timer.getTime()
-end
 
 -- showTextPrompt( title, label, initialValue, callback )
 -- callback( path|nil )
@@ -338,7 +357,7 @@ end
 -- callback( choice|0 )
 local function showButtonPrompt(title, buttonLabels, submitChoice, cb)
 	local guiPrompt = gui:getRoot():insert{"container", background="faded", relativeWidth=1, relativeHeight=1, closable=true, captureInput=true, confineNavigation=true,
-		{"vbar", background="shadowbox", width=300, padding=SPACING, anchorX=.5, anchorY=.5, originX=.5, originY=.5,
+		{"vbar", background="shadowbox", minWidth=300, padding=SPACING, anchorX=.5, anchorY=.5, originX=.5, originY=.5,
 			{"text", text=title, spacing=SPACING},
 			{"hbar", id="buttons", homogeneous=true},
 		},
@@ -572,7 +591,7 @@ gui:find"position":on("draw", function(guiCanvas, event, cw,ch)
 end)
 
 gui:find"masterVolume":on("valuechange", function(guiSlider)
-	love.audio.setVolume(guiSlider:getValue()^2)
+	LA.setVolume(guiSlider:getValue()^2)
 end)
 
 gui:find"copyToClipboard":on("press", function(guiButton)
@@ -900,6 +919,12 @@ for _, effectInfo in ipairs(EFFECTS) do
 end
 
 updateActiveEffects()
+
+if not LA.isEffectsSupported() then
+	showButtonPrompt("Your system doesn't seem to support audio effects.", {"Exit"}, 1, function(choice)
+		love.event.quit()
+	end)
+end
 
 
 
