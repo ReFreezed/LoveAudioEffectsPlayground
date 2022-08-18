@@ -250,10 +250,11 @@ return {
 
 			-- Background.
 			local r, g, b = Color"1e86be"
-			if button:isToggled() then  r, g, b = Color"25b786"
-			elseif isHovered      then  r, g, b = Color"da5d86"  end
+			if     button.data.danger then  r, g, b = Color"da5d86"
+			elseif button:isToggled() then  r, g, b = Color"25b786"
+			elseif isHovered          then  r, g, b = Color"da5d86"  end
 
-			local highlight = isHovered and button:isToggled() and not button:isPressed() and 1 or 0
+			local highlight = isHovered and (button:isToggled() or button.data.danger) and not button:isPressed() and 1 or 0
 			if button:isPressed() and isHovered then  r, g, b = r*.8, g*.8, b*.8  end
 
 			r, g, b = Gui.lerpColor(r,g,b, 1,1,1, .2*highlight)

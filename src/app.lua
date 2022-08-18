@@ -563,6 +563,10 @@ gui:load{"root", width=LG.getWidth(), height=LG.getHeight(),
 				{"button", style="button", id="copyToClipboard_effects", text="Include effects", canToggle=true, toggled=readAppState(appState, "copyToClipboard_effects", true)},
 				{"button", style="button", id="copyToClipboard_filters", text="Include filters", canToggle=true, toggled=readAppState(appState, "copyToClipboard_filters", true)},
 			},
+			{"container", weight=1},
+			{"hbar", spacing=SPACING,
+				{"button", style="button", id="resetAll", text="Reset all", data={danger=true}},
+			},
 		},
 		{"hbar", id="columns", spacing=SPACING, homogeneous=true,
 			{"vbar", spacing=SPACING, weight=1},
@@ -575,6 +579,16 @@ gui:load{"root", width=LG.getWidth(), height=LG.getHeight(),
 
 gui:find"copyToClipboard_effects":on("toggle", queueSaveAppState)
 gui:find"copyToClipboard_filters":on("toggle", queueSaveAppState)
+
+gui:find"resetAll":on("press", function(guiButton)
+	showButtonPrompt("Reset all parameters and everything?", {"Reset and restart","Cancel"}, 1, function(choice)
+		if choice == 1 then
+			love.filesystem.remove("state")
+			saveAppStateQueued = false
+			love.event.quit("restart")
+		end
+	end)
+end)
 
 gui:find"play":on("toggle", function(guiButton)
 	if guiButton:isToggled() then
