@@ -9,6 +9,7 @@
 --=
 --==============================================================
 
+	clamp
 	Color
 	expKeepSign
 	indexOf, itemWith1
@@ -132,6 +133,12 @@ function _G.itemWith1(arr, k, v)
 		if arr[i][k] == v then  return arr[i], i  end
 	end
 	return nil
+end
+
+
+
+function _G.clamp(v, min, max)
+	return math.max(math.min(v, max), min)
 end
 
 

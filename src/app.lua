@@ -293,7 +293,7 @@ end
 -- showTextPrompt( title, label, initialValue, callback )
 -- callback( path|nil )
 local function showTextPrompt(title, label, v, cb)
-	local guiPrompt = gui:getRoot():insert{"container", background="faded", relativeWidth=1, relativeHeight=1, closable=true, captureGuiInput=true, confineNavigation=true,
+	local guiPrompt = gui:getRoot():insert{"container", background="faded", relativeWidth=1, relativeHeight=1, closable=true, captureInput=true, confineNavigation=true,
 		{"vbar", background="shadowbox", width=300, padding=SPACING, anchorX=.5, anchorY=.5, originX=.5, originY=.5,
 			{"text", text=title, spacing=SPACING},
 			{"hbar",
@@ -308,12 +308,10 @@ local function showTextPrompt(title, label, v, cb)
 	}
 
 	local guiInput = guiPrompt:findType"input"
-	local vOnClose = nil
+	guiInput:focus()
+	guiInput:getField():selectAll()
 
-	guiPrompt:on("closed", function(guiPrompt, event)
-		guiPrompt:remove()
-		cb(vOnClose)
-	end)
+	local vOnClose = nil
 
 	guiInput:on("submit", function(guiInput, event)
 		vOnClose = guiInput:getValue()
@@ -324,8 +322,86 @@ local function showTextPrompt(title, label, v, cb)
 		guiPrompt:close()
 	end)
 
-	guiInput:focus()
-	guiInput:getField():selectAll()
+	guiPrompt:on("keypressed", function(guiPrompt, event, key, scancode, isRepeat)
+		if key == "return" or key == "kpenter" then
+			guiInput:trigger("submit")
+			return true
+		end
+	end)
+	guiPrompt:on("closed", function(guiPrompt, event)
+		guiPrompt:remove()
+		cb(vOnClose)
+	end)
+end
+
+-- showButtonPrompt( title, buttonLabels, submitChoice, callback )
+-- callback( choice|0 )
+local function showButtonPrompt(title, buttonLabels, submitChoice, cb)
+	local guiPrompt = gui:getRoot():insert{"container", background="faded", relativeWidth=1, relativeHeight=1, closable=true, captureInput=true, confineNavigation=true,
+		{"vbar", background="shadowbox", width=300, padding=SPACING, anchorX=.5, anchorY=.5, originX=.5, originY=.5,
+			{"text", text=title, spacing=SPACING},
+			{"hbar", id="buttons", homogeneous=true},
+		},
+	}
+
+	local guiButtons = guiPrompt:find"buttons"
+	local choice     = 0
+
+	for i, buttonLabel in ipairs(buttonLabels) do
+		local guiButton = guiButtons:insert{"button", style="button", weight=1, text=buttonLabel}
+
+		guiButton:on("press", function(guiButton, event)
+			choice = i
+			guiPrompt:close()
+		end)
+	end
+
+	guiPrompt:on("keypressed", function(guiPrompt, event, key, scancode, isRepeat)
+		if key == "return" or key == "kpenter" then
+			guiButtons[submitChoice]:press()
+			return true
+		end
+	end)
+	guiPrompt:on("closed", function(guiPrompt, event)
+		guiPrompt:remove()
+		cb(choice)
+	end)
+end
+
+local function showMenuWithTitle(title, buttonLabels, cb)
+	local mx,my = love.mouse.getPosition()
+
+	local guiMenu = gui:getRoot():insert{"container", background="faded", relativeWidth=1, relativeHeight=1, closable=true, captureInput=true, confineNavigation=true,
+		{"vbar", id="buttons", background="shadowbox", minWidth=150, padding=2, x=mx, y=my,
+			{"text", text=title, align="left"},
+		},
+	}
+
+	local guiButtons = guiMenu:find"buttons"
+	local choice     = 0
+
+	for i, buttonLabel in ipairs(buttonLabels) do
+		local guiButton = guiButtons:insert{"button", style="button", text=buttonLabel, align="left"}
+
+		guiButton:on("press", function(guiButton, event)
+			choice = i
+			guiMenu:close()
+		end)
+	end
+
+	local x,y, w,h = guiButtons:getLayout()
+	guiButtons:setPosition(
+		clamp(x, 0, LG.getWidth ()-w),
+		clamp(y, 0, LG.getHeight()-h)
+	)
+
+	guiMenu:on("mousepressed", function(guiButton, event, mx,my, mbutton, pressCount)
+		guiMenu:close()
+	end)
+	guiMenu:on("closed", function(guiMenu, event)
+		guiMenu:remove()
+		cb(choice)
+	end)
 end
 
 local function guiAddConstantParam(guiParent, labelWidth, label, v)
@@ -374,7 +450,7 @@ local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, 
 			"Reset ("..defaultValue..")",
 		}
 
-		local guiMenu = guiSlider:showMenu(items, mx,my, function(choice)
+		local guiMenu = showMenuWithTitle(label, items, function(choice)
 			if choice == 1 then
 				showTextPrompt("Enter value", label..":", tostring(v), function(vStr)
 					if vStr and vStr:find"%%$" then
@@ -403,10 +479,6 @@ local function guiAddSliderParam(guiParent, labelWidth, outputWidth, id, label, 
 				guiSlider:trigger("valuechange")
 			end
 		end)
-
-		guiMenu[1]:insert({"container", padding=2,
-			{"text", text=label, align="left"},
-		}, 1)
 	end)
 
 	return guiRow
@@ -852,11 +924,18 @@ local hearts = {}
 local time = 0.00
 
 function love.keypressed(key, scancode, isRepeat)
-	if gui:keypressed(key, scancode, isRepeat) then
+	if key == "q" and love.keyboard.isDown("lctrl", "rctrl") then
+			love.event.quit()
+
+	elseif gui:keypressed(key, scancode, isRepeat) then
 		-- void
 
 	elseif key == "escape" then
-		love.event.quit()
+		showButtonPrompt("Exit program?", {"Exit","Cancel"}, 1, function(choice)
+			if choice == 1 then
+				love.event.quit()
+			end
+		end)
 
 	elseif key == "space" then
 		if isRepeat then  return  end
