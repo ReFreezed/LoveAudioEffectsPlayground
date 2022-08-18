@@ -30,6 +30,8 @@ local PRESETS = require"presets"
 require"functions"
 
 -- Variables.
+local time = 0.00
+
 local saveAppStateQueued = false
 local saveAppStateTime   = 0.00
 
@@ -50,13 +52,13 @@ local gui
 local function showActionMessage(s, ...)
 	actionMessage     = s:format(...)
 	actionMessageTime = love.timer.getTime()
-	print(actionMessage)
+	print("[Message] "..actionMessage)
 end
 
 local function showActionErrorMessage(s, ...)
 	actionMessage     = ("Error: "..s):format(...)
 	actionMessageTime = love.timer.getTime()
-	printError(actionMessage)
+	printError("[Message] "..actionMessage)
 end
 
 
@@ -100,7 +102,7 @@ local function readAppState(appState, k, fallback, validValues)
 end
 
 local function saveAppStateNow()
-	print("Saving app state.") -- DEBUG
+	print("Saving app state.")
 	saveAppStateQueued = false
 	local buffer       = {}
 
@@ -164,6 +166,9 @@ local DEFAULT_MASTER_VOLUME = .75
 LA.setVolume(DEFAULT_MASTER_VOLUME^2) -- Note: This just affects output from sources - not output from effects!
 
 local function updateActiveEffects()
+	-- print("updateActiveEffects "..time)
+	-- @Speed: Don't recreate all these tables and stuff every time - just update what's needed!
+
 	-- Effects.
 	for _, effectInfo in ipairs(EFFECTS) do
 		if gui:find("param_"..effectInfo.type.."_active"):isToggled() then
@@ -806,7 +811,7 @@ do
 		{"text", style="biglabel", text="Filter"},
 	}
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_volume", "volume", 0,1, 1,readAppState(appState, "filterParam_volume", 1), 2, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_volume", "volume", 0,1, 1,readAppState(appState, "filterParam_volume", 1), 2, "%.2f", function()updateActiveEffects()end)
 
 	local values = {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}
 	local v      = readAppState(appState, "filterParam_type", "lowpass", values)
@@ -816,8 +821,8 @@ do
 		updateActiveEffects()
 	end)
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_lowgain" , "lowgain" , 0,1, 1,readAppState(appState, "filterParam_lowgain" , 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "lowpass" )
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_highgain", "highgain", 0,1, 1,readAppState(appState, "filterParam_highgain", 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "highpass")
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_lowgain" , "lowgain" , 0,1, 1,readAppState(appState, "filterParam_lowgain" , 1), 2, "%.2f", function()updateActiveEffects()end):findType"slider":setActive(v ~= "lowpass" )
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_highgain", "highgain", 0,1, 1,readAppState(appState, "filterParam_highgain", 1), 2, "%.2f", function()updateActiveEffects()end):findType"slider":setActive(v ~= "highpass")
 end
 
 -- Effects.
@@ -879,6 +884,9 @@ for _, effectInfo in ipairs(EFFECTS) do
 
 			local preset = presets[choice-1]
 
+			local _updateActiveEffects = updateActiveEffects
+			updateActiveEffects        = function()end -- @Hack: This prevents many updates from happening during this loop. @Speed @Cleanup: updateActiveEffects() should probably just queue an update.
+
 			for _, param in ipairs(effectInfo) do
 				if param.type ~= "constant" then
 					local v = preset and preset.params[param.name]
@@ -889,12 +897,15 @@ for _, effectInfo in ipairs(EFFECTS) do
 
 					if     param.type == "boolean" then  guiEl:setToggled(v)
 					elseif param.type == "number"  then  setSliderValue(guiEl, param.min,param.max, param.exp, v) ; guiEl:trigger("valuechange")
-					elseif param.type == "enum"    then  guiEl:setToggledChild(guiEl:getChildWithData("value", v):getIndex())
+					elseif param.type == "enum"    then  for guiButton in guiEl:traverseType"button" do  guiButton:setToggled(guiButton.data.value == v)  end
 					else
 						error(param.type)
 					end
 				end
 			end
+
+			updateActiveEffects = _updateActiveEffects
+			updateActiveEffects()
 		end)
 	end)
 
@@ -905,9 +916,9 @@ for _, effectInfo in ipairs(EFFECTS) do
 		local paramId = "param_"..effectInfo.type.."_"..param.name
 
 		if     param.type == "constant" then  guiAddConstantParam(guiBody, labelWidth,                             param.name, param.value)
-		elseif param.type == "boolean"  then  guiAddToggleParam  (guiBody, labelWidth,                    paramId, param.name, readAppState(appState, paramId, param.default), updateActiveEffects)
-		elseif param.type == "number"   then  guiAddSliderParam  (guiBody, labelWidth, numberOutputWidth, paramId, param.name, param.min,param.max, param.default,readAppState(appState, paramId, param.default), param.exp, param.format, updateActiveEffects)
-		elseif param.type == "enum"     then  guiAddRadioParam   (guiBody, labelWidth,                    paramId, param.name, 99, param.values, readAppState(appState, paramId, param.default, param.values), updateActiveEffects)
+		elseif param.type == "boolean"  then  guiAddToggleParam  (guiBody, labelWidth,                    paramId, param.name, readAppState(appState, paramId, param.default), function()updateActiveEffects()end)
+		elseif param.type == "number"   then  guiAddSliderParam  (guiBody, labelWidth, numberOutputWidth, paramId, param.name, param.min,param.max, param.default,readAppState(appState, paramId, param.default), param.exp, param.format, function()updateActiveEffects()end)
+		elseif param.type == "enum"     then  guiAddRadioParam   (guiBody, labelWidth,                    paramId, param.name, 99, param.values, readAppState(appState, paramId, param.default, param.values), function()updateActiveEffects()end)
 		else
 			error(param.type)
 		end
@@ -918,7 +929,7 @@ for _, effectInfo in ipairs(EFFECTS) do
 		{"text", style="biglabel", text="Pre-filter"},
 	}
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_volume", "volume", 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_volume", 1), 2, "%.2f", updateActiveEffects)
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_volume", "volume", 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_volume", 1), 2, "%.2f", function()updateActiveEffects()end)
 
 	local values = {{"lowpass","LP","Lowpass"},{"highpass","HP","Highpass"},{"bandpass","BP","Bandpass"}}
 	local v      = readAppState(appState, "filterParam_"..effectInfo.type.."_type", "lowpass", values)
@@ -928,8 +939,8 @@ for _, effectInfo in ipairs(EFFECTS) do
 		updateActiveEffects()
 	end)
 
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_lowgain" , "lowgain" , 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_lowgain" , 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "lowpass" )
-	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_highgain", "highgain", 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_highgain", 1), 2, "%.2f", updateActiveEffects):findType"slider":setActive(v ~= "highpass")
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_lowgain" , "lowgain" , 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_lowgain" , 1), 2, "%.2f", function()updateActiveEffects()end):findType"slider":setActive(v ~= "lowpass" )
+	guiAddSliderParam(guiFilterRows, labelWidth, numberOutputWidth, "filterParam_"..effectInfo.type.."_highgain", "highgain", 0,1, 1,readAppState(appState, "filterParam_"..effectInfo.type.."_highgain", 1), 2, "%.2f", function()updateActiveEffects()end):findType"slider":setActive(v ~= "highpass")
 end
 
 updateActiveEffects()
@@ -959,8 +970,6 @@ local whale = {
 }
 
 local hearts = {}
-
-local time = 0.00
 
 function love.keypressed(key, scancode, isRepeat)
 	if key == "q" and love.keyboard.isDown("lctrl", "rctrl") then
