@@ -1239,7 +1239,7 @@ function love.draw()
 		LG.push("all")
 			local connectors = require"back".connectors
 
-			-- Group backgrounds and labels.
+			-- Group backgrounds, links and labels.
 			LG.setFont(fontSmall)
 
 			for group, groupInfo in pairs(require"back".groups) do
@@ -1267,20 +1267,22 @@ function love.draw()
 
 				for _, conn in ipairs(connectors) do
 					if conn.group == group then
-						local x, y = getConnectorPosition(conn)
-						x1         = math.min(x1, x)
-						x2         = math.max(x2, x)
-						y1         = math.min(y1, y)
-						y2         = math.max(y2, y)
+						local x,y = getConnectorPosition(conn)
+						x1        = math.min(x1, x)
+						x2        = math.max(x2, x)
+						y1        = math.min(y1, y)
+						y2        = math.max(y2, y)
 					end
 				end
 
-				local textX = math.floor((x1 + x2 - LG.getFont():getWidth(groupInfo.label)) / 2)
-				local textY = y1 - 18 - LG.getFont():getHeight()
+				local textW = LG.getFont():getWidth(groupInfo.label)
+				local textH = LG.getFont():getHeight()
+				local textX = math.floor((x1 + x2 - textW) / 2)
+				local textY = y1 - 19 - textH
 
 				local boxX1 = x1    - 20
 				local boxX2 = x2    + 20
-				local boxY1 = textY - 3
+				local boxY1 = textY - 4
 				local boxY2 = y2    + 20
 
 				LG.setColor(0, 0, 0, .15)  ; require"Gui".draw9SliceScaled(boxX1+1,boxY1+4, boxX2-boxX1-2,boxY2-boxY1, boxBackgroundImage,unpack(boxBackgroundQuads))
@@ -1288,13 +1290,33 @@ function love.draw()
 				LG.setColor(.40, .40, .40) ; require"Gui".draw9SliceScaled(boxX1  ,boxY1-2, boxX2-boxX1  ,boxY2-boxY1, boxBackgroundImage,unpack(boxBackgroundQuads))
 				LG.setColor(.25, .25, .25) ; require"Gui".draw9SliceScaled(boxX1  ,boxY1  , boxX2-boxX1  ,boxY2-boxY1, boxBackgroundImage,unpack(boxBackgroundQuads))
 
-				LG.setColor(1, 1, 1)
-				LG.print(groupInfo.label, textX,textY)
+				for _, link in ipairs(require"back".links) do
+					if connectors[link.from].group == group then
+						local x1,y1 = getConnectorPosition(connectors[link.from])
+						local x2,y2 = getConnectorPosition(connectors[link.to  ])
+
+						if x1 == x2 then
+							LG.setLineWidth(3)
+						else
+							LG.setLineWidth(2)
+							LG.setColor(.3, .3, .3) ; LG.line(link.x+x1,link.y+y1+1, link.x+x2,link.y+y2+1)
+						end
+						LG.setColor(.2, .2, .2) ; LG.line(link.x+x1,link.y+y1, link.x+x2,link.y+y2)
+					end
+				end
+
+				LG.setColor(.15, .15, .15) ; require"Gui".draw9SliceScaled(textX-10,textY, textW+2*10,textH, boxBackgroundImage,unpack(boxBackgroundQuads))
+				if groupInfo.faded then
+					LG.setColor(.7, .7, .7 ) ; LG.print(groupInfo.label, textX,textY)
+				else
+					LG.setColor(1, 1, 1    ) ; LG.print(groupInfo.label, textX,textY)
+					LG.setColor(1, 1, 1, .3) ; LG.print(groupInfo.label, textX,textY)
+				end
 			end
 
 			-- Connectors.
 			for _, conn in ipairs(connectors) do
-				local x, y = getConnectorPosition(conn)
+				local x,y = getConnectorPosition(conn)
 
 				if conn.out then  LG.setColor(1, 1, 1  )
 				else              LG.setColor(.9, .7, 1)  end
@@ -1307,10 +1329,10 @@ function love.draw()
 
 			for _, wire in ipairs(require"back".wires) do
 				if checkFlags(wire.flags) then
-					local conn1  = connectors[wire.from] or error(wire.from)
-					local conn2  = connectors[wire.to  ] or error(wire.to  )
-					local x1, y1 = getConnectorPosition(conn1)
-					local x2, y2 = getConnectorPosition(conn2)
+					local conn1 = connectors[wire.from] or error(wire.from)
+					local conn2 = connectors[wire.to  ] or error(wire.to  )
+					local x1,y1 = getConnectorPosition(conn1)
+					local x2,y2 = getConnectorPosition(conn2)
 
 					table.insert(relevantWires, wire)
 
@@ -1324,10 +1346,10 @@ function love.draw()
 			LG.setLineWidth(4)
 
 			for _, wire in ipairs(relevantWires) do
-				local conn1  = connectors[wire.from] or error(wire.from)
-				local conn2  = connectors[wire.to  ] or error(wire.to  )
-				local x1, y1 = getConnectorPosition(conn1)
-				local x2, y2 = getConnectorPosition(conn2)
+				local conn1 = connectors[wire.from] or error(wire.from)
+				local conn2 = connectors[wire.to  ] or error(wire.to  )
+				local x1,y1 = getConnectorPosition(conn1)
+				local x2,y2 = getConnectorPosition(conn2)
 
 				-- Put wire 1 high.
 				if y1 > y2 then

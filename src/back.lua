@@ -23,21 +23,21 @@ local dist = 34
 local back = {
 	groups = {
 		source1 = {ox=.05,oy=.2, ax=0,ay=1, x=0  ,y=0, label="source 1 (loaded)"},
-		source2 = {ox=.15,oy=.2, ax=0,ay=1, x=260,y=0, label="source 2"},
+		source2 = {ox=.15,oy=.2, ax=0,ay=1, x=260,y=0, label="source 2", faded=true},
 
-		filters1 = {ox=.05,oy=.2, ax=0,ay=1, x=0  ,y=100, label="source1 filters"},
-		filters2 = {ox=.15,oy=.2, ax=0,ay=1, x=260,y=100, label="source2 filters"},
+		filters1 = {ox=.05,oy=.2, ax=0,ay=1, x=0  ,y=100, label="source 1 filters"},
+		filters2 = {ox=.15,oy=.2, ax=0,ay=1, x=260,y=100, label="source 2 filters", faded=true},
 
 		fx11 = {ox=.5,oy=.85, ax=.5,ay=0, x=-2*150,y=-100, label="fx 1 (chorus)"},
 		fx12 = {ox=.5,oy=.85, ax=.5,ay=0, x=-1*150,y=-100, label="fx 2 (flanger)"},
 		fx13 = {ox=.5,oy=.85, ax=.5,ay=0, x= 0*150,y=-100, label="fx 3 (equalizer)"},
 		fx14 = {ox=.5,oy=.85, ax=.5,ay=0, x= 1*150,y=-100, label="fx 4 (compressor)"},
-		fx15 = {ox=.5,oy=.85, ax=.5,ay=0, x= 2*150,y=-100, label="fx 5"},
+		fx15 = {ox=.5,oy=.85, ax=.5,ay=0, x= 2*150,y=-100, label="fx 5", faded=true},
 		fx21 = {ox=.5,oy=.85, ax=.5,ay=0, x=-2*150,y=0   , label="fx 6 (reverb)"},
 		fx22 = {ox=.5,oy=.85, ax=.5,ay=0, x=-1*150,y=0   , label="fx 7 (echo)"},
 		fx23 = {ox=.5,oy=.85, ax=.5,ay=0, x= 0*150,y=0   , label="fx 8 (ring modulator)"},
 		fx24 = {ox=.5,oy=.85, ax=.5,ay=0, x= 1*150,y=0   , label="fx 9 (distortion)"},
-		fx25 = {ox=.5,oy=.85, ax=.5,ay=0, x= 2*150,y=0   , label="fx 10"},
+		fx25 = {ox=.5,oy=.85, ax=.5,ay=0, x= 2*150,y=0   , label="fx 10", faded=true},
 
 		speaker = {ox=.95,oy=.15, ax=1,ay=1, x=0,y=0, label="speaker"},
 	},
@@ -191,6 +191,80 @@ local back = {
 		{name="speaker26", group="speaker", x=5*dist,y=1*dist, out=false},
 		{name="speaker27", group="speaker", x=6*dist,y=1*dist, out=false},
 		{name="speaker28", group="speaker", x=7*dist,y=1*dist, out=false},
+	},
+
+	links = {
+		{from="source1Filter01In", to="source1Filter01Out", x=0,y=0},
+		{from="source1Filter02In", to="source1Filter02Out", x=0,y=0},
+		{from="source1Filter03In", to="source1Filter03Out", x=0,y=0},
+		{from="source1Filter04In", to="source1Filter04Out", x=0,y=0},
+		{from="source1Filter05In", to="source1Filter05Out", x=0,y=0},
+		{from="source1Filter06In", to="source1Filter06Out", x=0,y=0},
+		{from="source1Filter07In", to="source1Filter07Out", x=0,y=0},
+		{from="source1Filter08In", to="source1Filter08Out", x=0,y=0},
+		{from="source1Filter09In", to="source1Filter09Out", x=0,y=0},
+		{from="source1Filter10In", to="source1Filter10Out", x=0,y=0},
+
+		{from="source2Filter01In", to="source2Filter01Out", x=0,y=0},
+		{from="source2Filter02In", to="source2Filter02Out", x=0,y=0},
+		{from="source2Filter03In", to="source2Filter03Out", x=0,y=0},
+		{from="source2Filter04In", to="source2Filter04Out", x=0,y=0},
+		{from="source2Filter05In", to="source2Filter05Out", x=0,y=0},
+		{from="source2Filter06In", to="source2Filter06Out", x=0,y=0},
+		{from="source2Filter07In", to="source2Filter07Out", x=0,y=0},
+		{from="source2Filter08In", to="source2Filter08Out", x=0,y=0},
+		{from="source2Filter09In", to="source2Filter09Out", x=0,y=0},
+		{from="source2Filter10In", to="source2Filter10Out", x=0,y=0},
+
+		{from="fx11In1", to="fx11Out", x=0,y=8},
+		{from="fx11In2", to="fx11Out", x=0,y=2},
+		{from="fx11In3", to="fx11Out", x=0,y=2},
+		{from="fx11In4", to="fx11Out", x=0,y=8},
+
+		{from="fx12In1", to="fx12Out", x=0,y=8},
+		{from="fx12In2", to="fx12Out", x=0,y=2},
+		{from="fx12In3", to="fx12Out", x=0,y=2},
+		{from="fx12In4", to="fx12Out", x=0,y=8},
+
+		{from="fx13In1", to="fx13Out", x=0,y=8},
+		{from="fx13In2", to="fx13Out", x=0,y=2},
+		{from="fx13In3", to="fx13Out", x=0,y=2},
+		{from="fx13In4", to="fx13Out", x=0,y=8},
+
+		{from="fx14In1", to="fx14Out", x=0,y=8},
+		{from="fx14In2", to="fx14Out", x=0,y=2},
+		{from="fx14In3", to="fx14Out", x=0,y=2},
+		{from="fx14In4", to="fx14Out", x=0,y=8},
+
+		{from="fx15In1", to="fx15Out", x=0,y=8},
+		{from="fx15In2", to="fx15Out", x=0,y=2},
+		{from="fx15In3", to="fx15Out", x=0,y=2},
+		{from="fx15In4", to="fx15Out", x=0,y=8},
+
+		{from="fx21In1", to="fx21Out", x=0,y=8},
+		{from="fx21In2", to="fx21Out", x=0,y=2},
+		{from="fx21In3", to="fx21Out", x=0,y=2},
+		{from="fx21In4", to="fx21Out", x=0,y=8},
+
+		{from="fx22In1", to="fx22Out", x=0,y=8},
+		{from="fx22In2", to="fx22Out", x=0,y=2},
+		{from="fx22In3", to="fx22Out", x=0,y=2},
+		{from="fx22In4", to="fx22Out", x=0,y=8},
+
+		{from="fx23In1", to="fx23Out", x=0,y=8},
+		{from="fx23In2", to="fx23Out", x=0,y=2},
+		{from="fx23In3", to="fx23Out", x=0,y=2},
+		{from="fx23In4", to="fx23Out", x=0,y=8},
+
+		{from="fx24In1", to="fx24Out", x=0,y=8},
+		{from="fx24In2", to="fx24Out", x=0,y=2},
+		{from="fx24In3", to="fx24Out", x=0,y=2},
+		{from="fx24In4", to="fx24Out", x=0,y=8},
+
+		{from="fx25In1", to="fx25Out", x=0,y=8},
+		{from="fx25In2", to="fx25Out", x=0,y=2},
+		{from="fx25In3", to="fx25Out", x=0,y=2},
+		{from="fx25In4", to="fx25Out", x=0,y=8},
 	},
 
 	wires = {
