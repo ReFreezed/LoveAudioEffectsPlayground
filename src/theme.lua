@@ -33,7 +33,7 @@ local CONTINUOUS_SLIDER_DEFAULT_WIDTH = 3 -- Relative to font size.
 local NAV_EXTRA_SIZE      = 10 -- In each direction.
 local NAV_SHRINK_DURATION = .10
 
-local SCROLLBAR_WIDTH      = 8
+local SCROLLBAR_WIDTH      = 10
 local SCROLLBAR_MIN_LENGTH = 12
 
 local TEXT_PADDING = 1 -- For text elements.

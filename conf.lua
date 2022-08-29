@@ -2,7 +2,7 @@ function love.conf(t)
 	t.identity = "LoveAudioEffectsPlayground"
 	t.version  = "11.4"
 
-	t.window.title     = "LÖVE Audio Effects Playground"
+	t.window.title     = "LÖVE Audio Effects Playground v1.1"
 	t.window.icon      = "gfx/appIcon16.png"
 	t.window.resizable = true
 	t.window.width     = 1200

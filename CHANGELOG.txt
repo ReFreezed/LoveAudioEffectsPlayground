@@ -1,0 +1,8 @@
+Changelog
+LÖVE Audio Effects Playground
+
+1.1 (2022-08-29)
+- Added the "other" side.
+
+1.0 (2022-08-18)
+- Initial release!
