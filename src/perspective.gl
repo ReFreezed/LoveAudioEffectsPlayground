@@ -1,0 +1,33 @@
+/***************************************************************
+*
+*  Perspective correcting shader
+*
+*---------------------------------------------------------------
+*
+*  LÖVE Audio Effects Playground
+*  by Marcus 'ReFreezed' Thunström
+*
+***************************************************************/
+
+uniform float heights[2];
+
+vec4 effect(vec4 loveColor, Image tex, vec2 texPos, vec2 screenPosPx) {
+	float maxHeightPx = max(heights[0], heights[1]);
+	float minHeightPx = min(heights[0], heights[1]);
+
+	float minH = minHeightPx / maxHeightPx; // maxH=1
+	float hAtX = mix(heights[0], heights[1], texPos.x) / maxHeightPx;
+
+	if (heights[0] < heights[1]) {
+		if (texPos.y-texPos.x < .0)  texPos.y =        texPos.y         / hAtX;
+		else                         texPos.y = 1 - (1-texPos.y) * minH / hAtX;
+	} else {
+		if (texPos.y-texPos.x < .0)  texPos.y =        texPos.y  * minH / hAtX;
+		else                         texPos.y = 1 - (1-texPos.y)        / hAtX;
+	}
+
+	if (heights[0] < heights[1])  texPos.x = 1 - (1-texPos.x) * minH / hAtX;
+	else                          texPos.x =        texPos.x  * minH / hAtX;
+
+	return Texel(tex, texPos) * loveColor;
+}

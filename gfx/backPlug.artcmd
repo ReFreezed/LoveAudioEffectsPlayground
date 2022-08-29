@@ -1,0 +1,15 @@
+canvas size26 aa4
+backdrop .2 .2 .2
+move (CanvasWidth/2) (CanvasHeight/2)
+
+set Radius 8
+
+# Shadow.
+grad rgb0 .5, rgb0 .5, rgb0 .5, rgb0 .5, rgb0 .5, rgb0 .5, rgb0 .0 +radial; circle 0 4 rRadius
+
+# Plug.
+set R 1, G .9, B .4
+grad (2*R) (2*G) (2*B), (1*R) (1*G) (1*B), (.5*R) (.5*G) (.5*B), rgb0 1 90deg scale.5; circle 0 0 rRadius #3D
+for 1 Radius
+	color (.5*R) (.5*G) (.5*B) (I/Radius); circle r(Radius-I) #sphere
+end

@@ -18,8 +18,10 @@ io.stderr:setvbuf("no")
 love.keyboard.setKeyRepeat(true)
 
 -- Constants.
-_G.TAU                  = 2*math.pi
-_G.APP_STATE_SAVE_DELAY = 5.00
+_G.TAU                     = 2*math.pi
+local APP_STATE_SAVE_DELAY = 5.00
+local FLIP_TIME            = 0.40
+local FLIP_TIME_FIRST      = 1.20 -- :)
 
 -- Modules.
 _G.LA         = love.audio
@@ -37,6 +39,12 @@ local saveAppStateTime   = 0.00
 
 local actionMessage     = ""
 local actionMessageTime = -1/0
+
+local ignoreInput = false
+
+local flipped    = false
+local flipAmount = 0
+local hasFlipped = false
 
 local theSource        = nil
 local currentSoundPath = ""
@@ -110,6 +118,7 @@ local function saveAppStateNow()
 	-- @Incomplete: Save window state.
 	writeKvPair(buffer, "copyToClipboard_effects", gui:find"copyToClipboard_effects":isToggled())
 	writeKvPair(buffer, "copyToClipboard_filters", gui:find"copyToClipboard_filters":isToggled())
+	writeKvPair(buffer, "hasFlipped", hasFlipped)
 
 	-- Source.
 	writeKvPair(buffer, "sourceSound"          , gui:find"sourceSound":findToggled().data.value)
@@ -153,6 +162,7 @@ local function queueSaveAppState()
 end
 
 local appState = loadAppState()
+hasFlipped     = readAppState(appState, "hasFlipped", hasFlipped)
 
 
 
@@ -302,6 +312,18 @@ theSource:setVolume(readAppState(appState, "sourceVolume", 1))
 -- GUI.
 --==============================================================
 
+local canvasSideFront, canvasSideBack = nil
+
+local function createCanvases()
+	if canvasSideFront then  canvasSideFront:release()  end
+	if canvasSideBack  then  canvasSideBack :release()  end
+
+	canvasSideFront = LG.newCanvas()
+	canvasSideBack  = LG.newCanvas()
+end
+
+createCanvases()
+
 local SPACING           = 8
 local LABEL_EXTRA_WIDTH = 5
 
@@ -311,8 +333,17 @@ local fontButtons = LG.newFont("fonts/NotoSans-SemiBold.ttf", 13)
 local fontLarge   = LG.newFont("fonts/NotoSans-SemiBold.ttf", 16)
 local fontHuge    = LG.newFont("fonts/NotoSans-SemiBold.ttf", 24)
 
-local imageHeart = LG.newImage("gfx/heart.png")
-local imageWhale = LG.newImage("gfx/whale.png")
+local imageHeart         = LG.newImage("gfx/heart.png")
+local imageWhale         = LG.newImage("gfx/whale.png")
+local imageWhale2        = LG.newImage("gfx/whale2.png")
+local imageBackConnector = LG.newImage("gfxgen/backConnector.png")
+local imageBackPlug      = LG.newImage("gfxgen/backPlug.png")
+local imageBackWireEnd   = LG.newImage(love.image.newImageData(4,4, "rgba8", table.concat{
+	"\255\255\255\100", "\255\255\255\255", "\255\255\255\255", "\255\255\255\100",
+	"\255\255\255\255", "\255\255\255\255", "\255\255\255\255", "\255\255\255\255",
+	"\255\255\255\255", "\255\255\255\255", "\255\255\255\255", "\255\255\255\255",
+	"\255\255\255\100", "\255\255\255\255", "\255\255\255\255", "\255\255\255\100",
+}))
 
 -- showTextPrompt( title, label, initialValue, callback )
 -- callback( path|nil )
@@ -572,6 +603,9 @@ gui:load{"root", width=LG.getWidth(), height=LG.getHeight(),
 			{"hbar", spacing=SPACING,
 				{"button", style="button", id="resetAll", text="Reset all", data={danger=true}},
 			},
+			{"hbar", spacing=SPACING,
+				{"button", style="button", id="backside", text="Backside >", data={dark=true}},
+			},
 		},
 		{"hbar", id="columns", spacing=SPACING, homogeneous=true,
 			{"vbar", spacing=SPACING, weight=1},
@@ -593,6 +627,11 @@ gui:find"resetAll":on("press", function(guiButton)
 			love.event.quit("restart")
 		end
 	end)
+end)
+
+gui:find"backside":on("press", function(guiButton)
+	flipped     = not flipped
+	ignoreInput = true
 end)
 
 gui:find"play":on("toggle", function(guiButton)
@@ -972,18 +1011,24 @@ local whale = {
 local hearts = {}
 
 function love.keypressed(key, scancode, isRepeat)
-	if key == "q" and love.keyboard.isDown("lctrl", "rctrl") then
-			love.event.quit()
+	if ignoreInput then  return  end
 
-	elseif gui:keypressed(key, scancode, isRepeat) then
+	if key == "q" and love.keyboard.isDown("lctrl", "rctrl") then
+		love.event.quit()
+
+	elseif not flipped and gui:keypressed(key, scancode, isRepeat) then
 		-- void
 
 	elseif key == "escape" then
-		showButtonPrompt("Exit program?", {"Exit","Cancel"}, 1, function(choice)
-			if choice == 1 then
-				love.event.quit()
-			end
-		end)
+		if flipped then
+			flipped = false
+		else
+			showButtonPrompt("Exit program?", {"Exit","Cancel"}, 1, function(choice)
+				if choice == 1 then
+					love.event.quit()
+				end
+			end)
+		end
 
 	elseif key == "space" then
 		if isRepeat then  return  end
@@ -994,7 +1039,11 @@ function love.keyreleased(key, scancode)
 	gui:keyreleased(key, scancode)
 end
 function love.textinput(text)
-	gui:textinput(text)
+	if ignoreInput then  return  end
+
+	if not flipped then
+		gui:textinput(text)
+	end
 end
 
 local function spawnHeart()
@@ -1008,26 +1057,40 @@ local function spawnHeart()
 end
 
 function love.mousepressed(mx, my, mbutton, isTouch, pressCount)
-	gui.canScrollMeansSolid = false -- @Hack
-	if
-		mbutton == 1
-		and ((mx - whale.x) / imageWhale:getWidth()) ^ 2 + ((my - (LG.getHeight()/2 + whale.y)) / imageWhale:getHeight()) ^ 2 < .5^2
-		and not gui:getElementAt(mx, my)
-	then
-		spawnHeart()
-	end
-	gui.canScrollMeansSolid = true
+	if ignoreInput then  return  end
 
-	gui:mousepressed(mx, my, mbutton, pressCount)
+	if not flipped then
+		gui.canScrollMeansSolid = false -- @Hack
+		if
+			mbutton == 1
+			and not flipped
+			and ((mx - whale.x) / imageWhale:getWidth()) ^ 2 + ((my - (LG.getHeight()/2 + whale.y)) / imageWhale:getHeight()) ^ 2 < .5^2
+			and not gui:getElementAt(mx, my)
+		then
+			spawnHeart()
+		end
+		gui.canScrollMeansSolid = true
+
+		gui:mousepressed(mx, my, mbutton, pressCount)
+	end
 end
 function love.mousemoved(mx, my, dx, dy, isTouch)
-	gui:mousemoved(mx, my, dx, dy)
+	if ignoreInput then  return  end
+	if not flipped then
+		gui:mousemoved(mx, my, dx, dy)
+	end
 end
 function love.mousereleased(mx, my, mbutton, isTouch, pressCount)
+	if not ignoreInput and flipped and mbutton == 1 then
+		flipped = false
+	end
 	gui:mousereleased(mx, my, mbutton, pressCount)
 end
 function love.wheelmoved(dx, dy)
-	gui:wheelmoved(dx, dy)
+	if ignoreInput then  return  end
+	if not flipped then
+		gui:wheelmoved(dx, dy)
+	end
 end
 
 local autoSpawnHeartTime = randomf(20.00, 30.00)
@@ -1042,6 +1105,7 @@ function love.update(dt)
 		saveAppStateNow()
 	end
 
+	-- Lovely stuff.
 	local reached
 
 	whale.velocity, reached = moveTowards(whale.velocity, whale.targetVelocity, .3*dt)
@@ -1068,35 +1132,256 @@ function love.update(dt)
 		spawnHeart()
 		autoSpawnHeartTime = time + randomf(40.00, 60.00)
 	end
+
+	-- The backside.
+	local flipTime = hasFlipped and FLIP_TIME or FLIP_TIME_FIRST
+	flipAmount     = clamp(flipAmount+(flipped and 1 or -1)/flipTime*dt, 0, 1)
+	ignoreInput    = flipAmount > 0 and flipAmount < 1
+
+	if not hasFlipped and flipAmount == 1 then
+		hasFlipped = true
+		queueSaveAppState() -- hasFlipped
+	end
+end
+
+local perspectiveShader = LG.newShader("src/perspective.gl")
+local mesh              = LG.newMesh(4, "fan", "stream")
+local vertices          = {{0,0, 0,0, 1,1,1,1}, {0,0, 1,0, 1,1,1,1}, {0,0, 1,1, 1,1,1,1}, {0,0, 0,1, 1,1,1,1}}
+
+local function drawPerspectiveQuad(texture, x1,y1--[[topleft]], x2,y2--[[topright]], x3,y3--[[bottomright]], x4,y4--[[bottomleft]])
+	shaderSend(perspectiveShader, "heights", y4-y1, y3-y2)
+	mesh:setTexture(texture)
+	vertices[1][1], vertices[1][2] = x1,y1
+	vertices[2][1], vertices[2][2] = x2,y2
+	vertices[3][1], vertices[3][2] = x3,y3
+	vertices[4][1], vertices[4][2] = x4,y4
+	mesh:setVertices(vertices)
+	LG.draw(mesh)
+end
+
+local function getConnectorPosition(conn)
+	local groupInfo = require"back".groups[conn.group] or error(conn.group)
+	return math.floor(groupInfo.ox*LG.getWidth () + groupInfo.x - groupInfo.ax*groupInfo.w + conn.x)
+	     , math.floor(groupInfo.oy*LG.getHeight() + groupInfo.y - groupInfo.ay*groupInfo.h + conn.y)
+end
+
+local function checkFlags(flags)
+	if not flags then  return true  end
+	for _, id in ipairs(flags) do
+	-- for _, id in pairs(flags) do -- What is LuaJIT doing? This seems to break randomly? Solve it for now with :AvoidPairsWhenCheckingFlags.
+		if gui:find(id):isToggled() ~= flags[id] then  return false  end
+	end
+	return true
 end
 
 function love.draw()
-	LG.clear(Color"b1e3fa")
+	local ww, wh = LG.getDimensions()
+	LG.clear(0, 0, 0, 1)
 
-	-- Lovely stuff.
-	LG.push("all")
-		LG.translate(0, LG.getHeight()/2)
+	--
+	-- The front side.
+	--
+	if flipAmount < 1 then
+		LG.setCanvas(canvasSideFront)
+		LG.clear(Color"b1e3fa")
 
-		LG.setColor(1, 1, 1)
-		LG.draw(imageWhale, whale.x,whale.y, 0, 1,1, imageWhale:getWidth()/2,imageWhale:getHeight()/2)
+		-- Lovely stuff.
+		LG.push("all")
+			LG.translate(0, wh/2)
 
-		LG.setColor(Color"da5d86")
+			LG.setColor(1, 1, 1)
+			LG.draw(imageWhale, whale.x,whale.y, 0, 1,1, imageWhale:getWidth()/2,imageWhale:getHeight()/2)
 
-		for i, heart in ipairsr(hearts) do
-			local dist = 10 * (time - heart.spawnTime)
-			local x    = heart.x + dist*math.cos(heart.angle) + 4*math.cos(time*TAU/heart.wiggleInterval)
-			local y    = heart.y + dist*math.sin(heart.angle)
+			LG.setColor(Color"da5d86")
 
-			if x < -imageHeart:getWidth() or y < -imageHeart:getHeight()-LG.getHeight()/2 then
-				table.remove(hearts, i)
-			else
-				LG.draw(imageHeart, x,y, 0, 1,1, imageHeart:getWidth()/2,imageHeart:getHeight()/2)
+			for i, heart in ipairsr(hearts) do
+				local dist = 10 * (time - heart.spawnTime)
+				local x    = heart.x + dist*math.cos(heart.angle) + 4*math.cos(time*TAU/heart.wiggleInterval)
+				local y    = heart.y + dist*math.sin(heart.angle)
+
+				if x < -imageHeart:getWidth() or y < -imageHeart:getHeight()-wh/2 then
+					table.remove(hearts, i)
+				else
+					LG.draw(imageHeart, x,y, 0, 1,1, imageHeart:getWidth()/2,imageHeart:getHeight()/2)
+				end
 			end
-		end
-	LG.pop()
+		LG.pop()
 
-	-- GUI.
-	gui:draw()
+		-- GUI.
+		gui:draw()
+
+		LG.setCanvas(nil)
+	end
+
+	--
+	-- The backside.
+	--
+	if flipAmount > 0 then
+		LG.setCanvas(canvasSideBack)
+		LG.clear(.2, .2, .2)
+
+		-- Lovely stuff.
+		LG.push("all")
+			LG.translate(0, wh/2)
+
+			LG.setColor(1, 1, 1)
+			LG.draw(imageWhale2, whale.x,whale.y, 0, 1,1, imageWhale:getWidth()/2,imageWhale:getHeight()/2)
+		LG.pop()
+
+		-- Connections.
+		local SEGMENTS              = 30
+		local MAX_SAG               = 45
+		local MAX_SWING_REL         = .05
+		local MAX_SWING_ABS         = 5
+		local MAX_SWING_TIME_OFFSET = .3
+		local SWING_TIME            = 3.00
+
+		LG.push("all")
+			local connectors = require"back".connectors
+
+			-- Group backgrounds and labels.
+			LG.setFont(fontSmall)
+
+			for group, groupInfo in pairs(require"back".groups) do
+				local x1 =  1/0
+				local x2 = -1/0
+				local y1 =  1/0
+				local y2 = -1/0
+
+				for _, conn in ipairs(connectors) do
+					if conn.group == group then
+						x1 = math.min(x1, conn.x)
+						x2 = math.max(x2, conn.x)
+						y1 = math.min(y1, conn.y)
+						y2 = math.max(y2, conn.y)
+					end
+				end
+
+				groupInfo.w = x2 - x1
+				groupInfo.h = y2 - y1
+
+				x1 =  1/0
+				x2 = -1/0
+				y1 =  1/0
+				y2 = -1/0
+
+				for _, conn in ipairs(connectors) do
+					if conn.group == group then
+						local x, y = getConnectorPosition(conn)
+						x1         = math.min(x1, x)
+						x2         = math.max(x2, x)
+						y1         = math.min(y1, y)
+						y2         = math.max(y2, y)
+					end
+				end
+
+				local textX = math.floor((x1 + x2 - LG.getFont():getWidth(groupInfo.label)) / 2)
+				local textY = y1 - 18 - LG.getFont():getHeight()
+
+				local boxX1 = x1    - 20
+				local boxX2 = x2    + 20
+				local boxY1 = textY - 3
+				local boxY2 = y2    + 20
+
+				LG.setColor(0, 0, 0, .15)  ; require"Gui".draw9SliceScaled(boxX1+1,boxY1+4, boxX2-boxX1-2,boxY2-boxY1, boxBackgroundImage,unpack(boxBackgroundQuads))
+				LG.setColor(.10, .10, .10) ; require"Gui".draw9SliceScaled(boxX1  ,boxY1+2, boxX2-boxX1  ,boxY2-boxY1, boxBackgroundImage,unpack(boxBackgroundQuads))
+				LG.setColor(.40, .40, .40) ; require"Gui".draw9SliceScaled(boxX1  ,boxY1-2, boxX2-boxX1  ,boxY2-boxY1, boxBackgroundImage,unpack(boxBackgroundQuads))
+				LG.setColor(.25, .25, .25) ; require"Gui".draw9SliceScaled(boxX1  ,boxY1  , boxX2-boxX1  ,boxY2-boxY1, boxBackgroundImage,unpack(boxBackgroundQuads))
+
+				LG.setColor(1, 1, 1)
+				LG.print(groupInfo.label, textX,textY)
+			end
+
+			-- Connectors.
+			for _, conn in ipairs(connectors) do
+				local x, y = getConnectorPosition(conn)
+
+				if conn.out then  LG.setColor(1, 1, 1  )
+				else              LG.setColor(.9, .7, 1)  end
+
+				drawImage(imageBackConnector, .5,.5, x,y)
+			end
+
+			-- Plugs.
+			local relevantWires = {}
+
+			for _, wire in ipairs(require"back".wires) do
+				if checkFlags(wire.flags) then
+					local conn1  = connectors[wire.from] or error(wire.from)
+					local conn2  = connectors[wire.to  ] or error(wire.to  )
+					local x1, y1 = getConnectorPosition(conn1)
+					local x2, y2 = getConnectorPosition(conn2)
+
+					table.insert(relevantWires, wire)
+
+					LG.setColor(1, 1, 1  ) ; drawImage(imageBackPlug, .5,.5, x1,y1)
+					LG.setColor(.9, .7, 1) ; drawImage(imageBackPlug, .5,.5, x2,y2)
+				end
+			end
+
+			-- Wires.
+			LG.setColor(0, 0, 0)
+			LG.setLineWidth(4)
+
+			for _, wire in ipairs(relevantWires) do
+				local conn1  = connectors[wire.from] or error(wire.from)
+				local conn2  = connectors[wire.to  ] or error(wire.to  )
+				local x1, y1 = getConnectorPosition(conn1)
+				local x2, y2 = getConnectorPosition(conn2)
+
+				-- Put wire 1 high.
+				if y1 > y2 then
+					x1, x2 = x2, x1
+					y1, y2 = y2, y1
+				end
+
+				local line     = {}
+				local maxSwing = math.min(math.abs(x2-x1)*MAX_SWING_REL, MAX_SWING_ABS)
+				local time01   = love.timer.getTime() / SWING_TIME + MAX_SWING_TIME_OFFSET * love.math.noise((x1+x2)*1753.72, (y1+y2)*367.813)
+				local swing    = maxSwing * math.sin(time01*TAU)/2
+
+				for seg = 0, SEGMENTS do
+					local t   = seg/SEGMENTS
+					t         = t^1.5 -- More segments lower where the wire bends the most.
+					-- t      = (expKeepSign(t*2-1, 2) + 1) / 2 -- More segments in the middle where the wire bends the most.
+					local sag = math.sin(t*TAU/2)
+
+					table.insert(line, lerp(x1, x2, t)+swing*sag)
+					table.insert(line, lerp(y1, y2, math.sin(t*TAU/4))+MAX_SAG*sag)
+
+					-- line[#line-1] = line[#line-1] + 3*(math.random()*2-1) -- DEBUG
+				end
+
+				LG.line(line)
+				drawImage(imageBackWireEnd, .5,.5, x1,y1)
+				drawImage(imageBackWireEnd, .5,.5, x2,y2)
+			end
+		LG.pop()
+
+		LG.setCanvas(nil)
+	end
+
+	--
+	-- Composition.
+	--
+	local flipAmount   = lerp(1-math.cos(flipAmount*TAU/4), math.sin(flipAmount*TAU/4), flipAmount)
+	local cubeRotation = flipAmount * TAU/4
+
+	local x1   = ww/2 + ww/2 * math.cos( 3/8*TAU+cubeRotation) / math.sin(TAU/8)
+	local x2   = ww/2 + ww/2 * math.cos( 1/8*TAU+cubeRotation) / math.sin(TAU/8)
+	local x3   = ww/2 + ww/2 * math.cos(-1/8*TAU+cubeRotation) / math.sin(TAU/8)
+	local x1y1 = -.2*wh * (math.sin( 3/8*TAU+cubeRotation) - math.sin(TAU/8))
+	local x2y1 = -.2*wh * (math.sin( 1/8*TAU+cubeRotation) - math.sin(TAU/8))
+	local x3y1 = -.2*wh * (math.sin(-1/8*TAU+cubeRotation) - math.sin(TAU/8))
+	local x1y2 = wh - x1y1
+	local x2y2 = wh - x2y1
+	local x3y2 = wh - x3y1
+
+	-- LG.translate(ww/2, wh/2) ; LG.scale(.5, .5) ; LG.translate(-ww/2, -wh/2) -- DEBUG
+	LG.setShader(perspectiveShader)
+	if flipAmount < 1 then  local gray = lerp(.2, 1, math.cos(flipAmount*TAU/4)) ; LG.setColor(gray, gray, gray) ; drawPerspectiveQuad(canvasSideFront, x1,x1y1, x2,x2y1, x2,x2y2, x1,x1y2)  end
+	if flipAmount > 0 then  local gray = lerp(.2, 1, math.sin(flipAmount*TAU/4)) ; LG.setColor(gray, gray, gray) ; drawPerspectiveQuad(canvasSideBack , x2,x2y1, x3,x3y1, x3,x3y2, x2,x2y2)  end
+	LG.setShader(nil)
 
 	-- Action message.
 	local DURATION  = 2.00
@@ -1106,8 +1391,8 @@ function love.draw()
 	if a > 0 then
 		local w = fontHuge:getWidth(actionMessage)
 		local h = fontHuge:getHeight()
-		local x = math.floor((LG.getWidth ()-w)/2)
-		local y = math.floor((LG.getHeight()-h)/2)
+		local x = math.floor((ww-w)/2)
+		local y = math.floor((wh-h)/2)
 		LG.setFont(fontHuge)
 		LG.setColor(1, 1, 1, a^1.5)
 		LG.rectangle("fill", x-4,y-4, w+2*4,h+2*4)
@@ -1120,6 +1405,7 @@ end
 
 function love.resize(ww, wh)
 	gui:getRoot():setDimensions(ww, wh)
+	createCanvases()
 end
 
 function love.filedropped(file)

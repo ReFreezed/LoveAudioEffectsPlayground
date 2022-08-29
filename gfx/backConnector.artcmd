@@ -1,0 +1,14 @@
+canvas size38 aa4
+backdrop .2 .2 .2
+move (CanvasWidth/2) (CanvasHeight/2)
+
+color rgb0 .2; circle 0 3 r14 #shadow
+grad rgb.7, rgb.05 1 90deg scale.3; circle 0 0 r14 #rim
+color rgb.23; circle r12 #raised part
+grad rgb.4, rgb.05 1 -90deg; circle 0 0 r10 #indentation
+color rgb.2; circle 0 0 r8 #inside
+
+color rgb1 .4; circle 0 1 r3 #rim light
+color rgb0; circle 0 0 r3 #hole
+
+# color; image "backPlug.artcmd" ax.5 ay.5 #preview

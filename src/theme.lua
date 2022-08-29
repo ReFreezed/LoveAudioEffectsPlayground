@@ -10,7 +10,6 @@
 --============================================================]]
 
 local Gui = require"Gui"
-local TAU = 2*math.pi
 
 
 
@@ -58,7 +57,7 @@ local buttonBackgroundImage = Gui.newMonochromeImage{
 }
 local buttonBackgroundQuads = Gui.create9SliceQuads(buttonBackgroundImage, 3, 3)
 
-local buttonBackground2Image = Gui.newMonochromeImage{
+_G.boxBackgroundImage = Gui.newMonochromeImage{ -- @Cleanup: Global.
 	"  5cffc5  ",
 	" bffffffb ",
 	"5ffffffff5",
@@ -71,7 +70,7 @@ local buttonBackground2Image = Gui.newMonochromeImage{
 	" bffffffb ",
 	"  5cffc5  ",
 }
-local buttonBackground2Quads = Gui.create9SliceQuads(buttonBackground2Image, 4, 4)
+_G.boxBackgroundQuads = Gui.create9SliceQuads(boxBackgroundImage, 4, 4)
 
 local navigationImage = Gui.newMonochromeImage{
 	" 4cffffc4 ",
@@ -200,12 +199,12 @@ return {
 				LG.rectangle("fill", 0,0, w,h)
 			elseif bg == "box" then
 				Gui.setColor(Color"e0f4fc")
-				Gui.draw9SliceScaled(0,0, w,h, buttonBackground2Image,unpack(buttonBackground2Quads))
+				Gui.draw9SliceScaled(0,0, w,h, boxBackgroundImage,unpack(boxBackgroundQuads))
 			elseif bg == "shadowbox" then
 				Gui.setColor(0, 0, 0, .2)
-				Gui.draw9SliceScaled(-6,-6, w+2*6,h+2*6, buttonBackground2Image,unpack(buttonBackground2Quads))
+				Gui.draw9SliceScaled(-6,-6, w+2*6,h+2*6, boxBackgroundImage,unpack(boxBackgroundQuads))
 				Gui.setColor(Color"e0f4fc")
-				Gui.draw9SliceScaled(0,0, w,h, buttonBackground2Image,unpack(buttonBackground2Quads))
+				Gui.draw9SliceScaled(0,0, w,h, boxBackgroundImage,unpack(boxBackgroundQuads))
 			else
 				Gui.setColor(0, 0, 0)
 				LG.rectangle("fill", 0,0, w,h)
@@ -251,10 +250,11 @@ return {
 			-- Background.
 			local r, g, b = Color"1e86be"
 			if     button.data.danger then  r, g, b = Color"da5d86"
+			elseif button.data.dark   then  r, g, b = .1, .1, .1
 			elseif button:isToggled() then  r, g, b = Color"25b786"
 			elseif isHovered          then  r, g, b = Color"da5d86"  end
 
-			local highlight = isHovered and (button:isToggled() or button.data.danger) and not button:isPressed() and 1 or 0
+			local highlight = isHovered and (button:isToggled() or button.data.danger or button.data.dark) and not button:isPressed() and 1 or 0
 			if button:isPressed() and isHovered then  r, g, b = r*.8, g*.8, b*.8  end
 
 			r, g, b = Gui.lerpColor(r,g,b, 1,1,1, .2*highlight)

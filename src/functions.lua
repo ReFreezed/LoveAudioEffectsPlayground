@@ -11,25 +11,31 @@
 
 	clamp
 	Color
+	drawImage
 	expKeepSign
 	indexOf, itemWith1
 	ipairsr
+	lerp, normalize, denormalize
 	moveTowards
-	normalize, denormalize
 	printError, printfError
 	randomf
 	serialize, deserialize
+	shaderSend
 	writeKvPair
 
 --============================================================]]
 
 
 
-function _G.expKeepSign(v, exp)
+function _G.expKeepSign(v, exp) -- @Cleanup: Rename to powKeepSign.
 	return (v < 0) and -(-v)^exp or v^exp
 end
 
 
+
+function _G.lerp(x1, x2, t)
+	return x1 + t*(x2-x1)
+end
 
 function _G.normalize(v, min,max, exp)
 	v   = expKeepSign(v  , 1/exp)
@@ -154,6 +160,19 @@ end
 
 function _G.printfError(s, ...)
 	io.stderr:write(s:format(...), "\n")
+end
+
+
+
+function _G.shaderSend(shader, var, ...)
+	pcall(shader.send, shader, var, ...)
+end
+
+
+
+function _G.drawImage(image, ax,ay, x,y, r, sx,sy)
+	local iw,ih = image:getDimensions()
+	LG.draw(image, x,y, r, sx,sy, ax*iw,ay*ih)
 end
 
 
